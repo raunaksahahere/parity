@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llm-parity"
+version = "0.1.0.dev0"
+description = "Statistical conformance testing for LLM inference endpoints"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "raunaksahahere" }]
+keywords = ["llm", "inference", "conformance", "testing", "statistics"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Testing",
+]
+dependencies = [
+  "numpy>=1.26",
+  "scipy>=1.12",
+  "httpx>=0.27",
+  "pydantic>=2.6",
+  "transformers>=4.44",
+  "tokenizers>=0.19",
+  "jinja2>=3.1",
+  "duckdb>=1.0",
+  "pyarrow>=15",
+  "typer>=0.12",
+]
+
+[project.scripts]
+parity = "parity.cli:app"
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.23",
+  "hypothesis>=6.100",
+  "ruff>=0.5",
+  "mypy>=1.10",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/parity"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/parity"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["scipy.*", "transformers.*", "duckdb.*", "pyarrow.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["live: needs a running model server (skipped in CI)"]
+addopts = "-m 'not live'"

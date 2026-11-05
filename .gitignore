@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+runs/
+.parity-cache/
+models/
+bin/
+*.gguf
+.env
