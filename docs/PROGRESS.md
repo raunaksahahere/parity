@@ -1,9 +1,9 @@
 # Progress
 
 - [x] 1. Scaffold
-- [ ] 2. Local targets and reference runner; baseline noise
+- [x] 2. Local targets and reference runner; baseline noise
 - [x] 3. Template/tokenizer probe
-- [ ] 4. Sampler probe and G-test
+- [x] 4. Sampler probe and G-test
 - [ ] 5. Teacher-forced log-prob comparison, KL, adapters
 - [ ] 6. Calibration, SPRT, Holm-Bonferroni, bootstrap
 - [ ] 7. Greedy agreement, long-context, tool/JSON probes

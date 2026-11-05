@@ -48,3 +48,17 @@ otherwise. Pinned build: llama.cpp b12128. GPU for study runs: `Vulkan1`
 - Qwen3 opens with `<think>` by default; chat probes pass `enable_thinking=false`
   through the template (or account for it) so behaviour is comparable.
 - Repeats with `cache_prompt=false` on CPU are bit-identical.
+
+## D6. Reference vs. benign variation
+The HF fp32 reference and a correctly deployed llama.cpp BF16 build differ by about 0.001 nats
+(mean |Δ| of the forced-token log-prob), CPU BF16 by about 0.007, Q8_0 by about 0.034
+(docs/baseline-noise.md). Thresholds therefore cannot be set from same-configuration repeats
+(zero on GPU); `parity calibrate` measures variation across benign deployment changes
+(parallel slots, backend, concurrency) against the reference.
+
+## D7. Sampler probe takes its expected distribution from the target itself
+The expected next-token distribution for the sampler probe comes from the target's own
+temperature-1 log-probs, so quantization differences are not blamed on the sampler. Only
+order-independent combinations are tested (`top_k` with any temperature; `top_p`/`min_p` at
+temperature 1) because llama.cpp truncates before applying temperature while HF/vLLM apply
+temperature first.
