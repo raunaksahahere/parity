@@ -82,3 +82,20 @@ async def test_empirical_false_positive_rate_on_honest_servers(toy_kit: Tokenize
         deviations += res.status is Status.DEVIATION
     # nominal alpha is 0.05 per probe run; the Bonferroni-spent tests are conservative
     assert deviations <= 2, f"{deviations}/{runs} honest runs flagged"
+
+
+async def test_probability_moving_past_the_reported_topk_at_high_temperature_is_not_a_violation(
+    toy_kit: TokenizerKit,
+) -> None:
+    """Regression: at temperature > 1 mass legitimately flows into the unreported tail.
+
+    The live run on a real server flagged this honest behaviour as a 16% 'violation'.
+    """
+    spec = load_json("core-v1", "sampler.json")
+    prompts = {
+        tuple(toy_kit.encode(t)): make_logprobs(i, 1.5) for i, t in enumerate(spec["prompts"])
+    }
+    server = FakeSamplerServer(prompts, report_cap=60, seed=11)
+    res = await run(toy_kit, server)
+    assert res.status is Status.PASS, [f.message for f in res.findings]
+    assert res.metrics["temp-1.4.violation_rate"] == 0.0

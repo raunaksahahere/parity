@@ -74,3 +74,24 @@ def g_test(observed: np.ndarray, probs: np.ndarray, *, min_expected: float = 5.0
     return GTestResult(
         g=g_adj, df=df, p_value=float(stats.chi2.sf(g_adj, df)), n=n, n_cells=k, tv=tv
     )
+
+
+def expected_null_tv(
+    probs: np.ndarray, n: int, *, sims: int = 100, seed: int = 0, min_expected: float = 5.0
+) -> float:
+    """Mean plug-in TV distance when the samples really do come from ``probs``.
+
+    The plug-in TV estimator is biased upward by roughly sqrt(cells / n); subtracting this
+    null expectation gives an effect size that is ~0 for a conforming sampler.
+    """
+    rng = np.random.default_rng(seed)
+    probs = np.asarray(probs, dtype=float)
+    probs = probs / probs.sum()
+    return float(
+        np.mean(
+            [
+                g_test(rng.multinomial(n, probs), probs, min_expected=min_expected).tv
+                for _ in range(sims)
+            ]
+        )
+    )

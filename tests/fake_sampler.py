@@ -19,6 +19,7 @@ class FakeSamplerServer:
         honor_top_p: bool = True,
         honor_temperature: bool = True,
         always_truncate_to: int = 0,
+        report_cap: int = 0,
         seed: int = 0,
     ) -> None:
         self.logits = prompts
@@ -26,6 +27,7 @@ class FakeSamplerServer:
         self.honor_top_p = honor_top_p
         self.honor_temperature = honor_temperature
         self.always_truncate_to = always_truncate_to
+        self.report_cap = report_cap
         self.rng = np.random.default_rng(seed)
         self.calls = 0
 
@@ -53,7 +55,7 @@ class FakeSamplerServer:
         lp = self.logits[tuple(body["prompt"])]
         k = int(body.get("logprobs", 1))
         tok = self._sample(lp, body)
-        order = np.argsort(-lp)[: max(k, 1)]
+        order = np.argsort(-lp)[: max(min(k, self.report_cap) if self.report_cap else k, 1)]
         top = [{"id": int(i), "token": f"t{i}", "logprob": float(lp[i])} for i in order]
         item = {"id": tok, "token": f"t{tok}", "logprob": float(lp[tok]), "top_logprobs": top}
         return httpx.Response(

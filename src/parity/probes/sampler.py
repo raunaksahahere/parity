@@ -27,7 +27,7 @@ from scipy import stats
 
 from parity.client import EndpointError
 from parity.probes.base import Finding, Probe, ProbeContext, ProbeResult, Status
-from parity.stats.gtest import g_test
+from parity.stats.gtest import expected_null_tv, g_test
 from parity.stats.sampling import Expected, SamplerSettings, expected_distribution
 from parity.suites import load_json
 
@@ -71,7 +71,15 @@ def _entropy(lp: np.ndarray) -> float:
 
 
 def evaluate_case(case: CaseState) -> tuple[float, float, float, float]:
-    """Returns (p_violation, p_gtest, violation_rate, tv) from the current counts."""
+    """Returns (p_violation, p_gtest, violation_rate, excess_tv) from the current counts.
+
+    Violations are only meaningful when the case truncates (top_k/top_p/min_p): without
+    truncation, probability that moves beyond the provider's reported top-K (for instance at
+    temperature > 1) is legitimate, so those samples are dropped from the conditional test.
+    ``excess_tv`` is the plug-in TV distance minus its expectation under H0.
+    """
+    s = case.settings
+    truncating = s.top_k > 0 or s.top_p < 1.0 or s.min_p > 0.0
     violations = 0
     total = 0
     g_total, df_total, tv_num, tv_den = 0.0, 0, 0.0, 0
@@ -90,11 +98,16 @@ def evaluate_case(case: CaseState) -> tuple[float, float, float, float]:
             res = g_test(obs, exp.probs)
             g_total += res.g
             df_total += res.df
-            tv_num += res.tv * in_r
+            excess = res.tv - expected_null_tv(exp.probs, in_r)
+            tv_num += excess * in_r
             tv_den += in_r
-    p_v = float(stats.binom.sf(violations - 1, total, VIOLATION_TOLERANCE)) if total else 1.0
+    if truncating and total:
+        p_v = float(stats.binom.sf(violations - 1, total, VIOLATION_TOLERANCE))
+        rate = violations / total
+    else:
+        p_v, rate = 1.0, 0.0
     p_g = float(stats.chi2.sf(g_total, df_total)) if df_total > 0 else 1.0
-    return p_v, p_g, (violations / total if total else 0.0), (tv_num / tv_den if tv_den else 0.0)
+    return p_v, p_g, rate, (tv_num / tv_den if tv_den else 0.0)
 
 
 def describe(case: CaseState) -> str:
@@ -112,10 +125,11 @@ def describe(case: CaseState) -> str:
         )
     if s.temperature != 1.0:
         return (
-            f"samples do not follow temperature={s.temperature} (TV distance {case.tv:.3f}); "
+            f"samples do not follow temperature={s.temperature} "
+            f"(excess TV distance {case.tv:.3f}); "
             "temperature may be ignored or applied at a different stage"
         )
-    return f"samples deviate from the expected distribution (TV distance {case.tv:.3f})"
+    return f"samples deviate from the expected distribution (excess TV distance {case.tv:.3f})"
 
 
 class SamplerProbe(Probe):
@@ -249,8 +263,9 @@ class SamplerProbe(Probe):
         worst_p = 1.0
         worst_effect = 0.0
         for case in cases:
-            metrics[f"{case.case_id}.tv"] = case.tv
+            metrics[f"{case.case_id}.excess_tv"] = case.tv
             metrics[f"{case.case_id}.violation_rate"] = case.violation_rate
+            metrics[f"{case.case_id}.p_gtest"] = case.p_gtest
             metrics[f"{case.case_id}.samples"] = float(case.n)
             p_case = min(1.0, min(case.p_violation, case.p_gtest) * n_tests)
             worst_p = min(worst_p, p_case)
