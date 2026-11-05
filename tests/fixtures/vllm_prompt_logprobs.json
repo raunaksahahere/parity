@@ -1,0 +1,14 @@
+{
+  "_note": "Synthetic, written from vLLM's documented /v1/completions prompt_logprobs format; not recorded from a live server.",
+  "ids": [10, 20, 30],
+  "choices": [
+    {
+      "text": "x",
+      "prompt_logprobs": [
+        null,
+        {"20": {"logprob": -0.5, "rank": 1, "decoded_token": "b"}, "21": {"logprob": -1.5, "rank": 2, "decoded_token": "c"}},
+        {"31": {"logprob": -0.2, "rank": 1, "decoded_token": "e"}, "30": {"logprob": -2.0, "rank": 2, "decoded_token": "d"}}
+      ]
+    }
+  ]
+}

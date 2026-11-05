@@ -1,0 +1,14 @@
+{
+  "_note": "Synthetic, written from OpenAI's documented legacy completions echo+logprobs format; not recorded from a live server.",
+  "choices": [
+    {
+      "text": "Hello world",
+      "logprobs": {
+        "tokens": ["Hello", " world"],
+        "token_logprobs": [null, -1.25],
+        "top_logprobs": [null, {" world": -1.25, " there": -1.5}],
+        "text_offset": [0, 5]
+      }
+    }
+  ]
+}

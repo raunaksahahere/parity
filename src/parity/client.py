@@ -49,15 +49,19 @@ class TokenBucket:
         self._lock = asyncio.Lock()
 
     async def acquire(self, tokens: float = 1.0) -> None:
+        """Reserve ``tokens`` (the balance may go negative) and sleep out the deficit.
+
+        Reserving before sleeping keeps concurrent callers correctly spaced and,
+        unlike a refill-and-retry loop, cannot spin on float rounding.
+        """
         async with self._lock:
-            while True:
-                now = self._clock()
-                self._tokens = min(self.capacity, self._tokens + (now - self._last) * self.rate)
-                self._last = now
-                if self._tokens >= tokens:
-                    self._tokens -= tokens
-                    return
-                await self._sleep((tokens - self._tokens) / self.rate)
+            now = self._clock()
+            self._tokens = min(self.capacity, self._tokens + (now - self._last) * self.rate)
+            self._last = now
+            self._tokens -= tokens
+            wait = -self._tokens / self.rate if self._tokens < 0 else 0.0
+        if wait > 0:
+            await self._sleep(wait)
 
 
 def backoff_delay(

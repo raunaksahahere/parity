@@ -1,0 +1,507 @@
+{
+ "_note": "Recorded from llama.cpp b12128 serving Qwen3-0.6B Q8_0 (Vulkan). Request: /v1/completions, prompt=ids[:i], max_tokens=1, logprobs=5.",
+ "ids": [
+  785,
+  6722,
+  315,
+  9625,
+  374,
+  12095
+ ],
+ "steps": [
+  {
+   "choices": [
+    {
+     "text": "Comparison",
+     "index": 0,
+     "logprobs": {
+      "content": [
+       {
+        "id": 33487,
+        "token": "Comparison",
+        "bytes": [
+         67,
+         111,
+         109,
+         112,
+         97,
+         114,
+         105,
+         115,
+         111,
+         110
+        ],
+        "logprob": -6.812610149383545,
+        "top_logprobs": [
+         {
+          "id": 15846,
+          "token": " Question",
+          "bytes": [
+           32,
+           81,
+           117,
+           101,
+           115,
+           116,
+           105,
+           111,
+           110
+          ],
+          "logprob": -4.2422871589660645
+         },
+         {
+          "id": 38297,
+          "token": " Instructions",
+          "bytes": [
+           32,
+           73,
+           110,
+           115,
+           116,
+           114,
+           117,
+           99,
+           116,
+           105,
+           111,
+           110,
+           115
+          ],
+          "logprob": -4.263088703155518
+         },
+         {
+          "id": 12478,
+          "token": " Solution",
+          "bytes": [
+           32,
+           83,
+           111,
+           108,
+           117,
+           116,
+           105,
+           111,
+           110
+          ],
+          "logprob": -4.664811611175537
+         },
+         {
+          "id": 3988,
+          "token": " Name",
+          "bytes": [
+           32,
+           78,
+           97,
+           109,
+           101
+          ],
+          "logprob": -4.7050909996032715
+         },
+         {
+          "id": 21806,
+          "token": " Answer",
+          "bytes": [
+           32,
+           65,
+           110,
+           115,
+           119,
+           101,
+           114
+          ],
+          "logprob": -4.8375325202941895
+         }
+        ]
+       }
+      ]
+     },
+     "finish_reason": "length"
+    }
+   ],
+   "model": "/home/raunak/Desktop/Parity/models/gguf/Qwen3-0.6B-Q8_0.gguf",
+   "system_fingerprint": "b12128-a01dff908",
+   "object": "text_completion",
+   "usage": {
+    "completion_tokens": 1,
+    "prompt_tokens": 1,
+    "total_tokens": 2,
+    "prompt_tokens_details": {
+     "cached_tokens": 0
+    }
+   }
+  },
+  {
+   "choices": [
+    {
+     "text": " of",
+     "index": 0,
+     "logprobs": {
+      "content": [
+       {
+        "id": 315,
+        "token": " of",
+        "bytes": [
+         32,
+         111,
+         102
+        ],
+        "logprob": -0.4342515468597412,
+        "top_logprobs": [
+         {
+          "id": 315,
+          "token": " of",
+          "bytes": [
+           32,
+           111,
+           102
+          ],
+          "logprob": -0.4342515468597412
+         },
+         {
+          "id": 3283,
+          "token": " city",
+          "bytes": [
+           32,
+           99,
+           105,
+           116,
+           121
+          ],
+          "logprob": -1.718658208847046
+         },
+         {
+          "id": 374,
+          "token": " is",
+          "bytes": [
+           32,
+           105,
+           115
+          ],
+          "logprob": -3.9291484355926514
+         },
+         {
+          "id": 11,
+          "token": ",",
+          "bytes": [
+           44
+          ],
+          "logprob": -4.191215991973877
+         },
+         {
+          "id": 5537,
+          "token": " region",
+          "bytes": [
+           32,
+           114,
+           101,
+           103,
+           105,
+           111,
+           110
+          ],
+          "logprob": -4.397708892822266
+         }
+        ]
+       }
+      ]
+     },
+     "finish_reason": "length"
+    }
+   ],
+   "model": "/home/raunak/Desktop/Parity/models/gguf/Qwen3-0.6B-Q8_0.gguf",
+   "system_fingerprint": "b12128-a01dff908",
+   "object": "text_completion",
+   "usage": {
+    "completion_tokens": 1,
+    "prompt_tokens": 2,
+    "total_tokens": 3,
+    "prompt_tokens_details": {
+     "cached_tokens": 1
+    }
+   }
+  },
+  {
+   "choices": [
+    {
+     "text": " the",
+     "index": 0,
+     "logprobs": {
+      "content": [
+       {
+        "id": 279,
+        "token": " the",
+        "bytes": [
+         32,
+         116,
+         104,
+         101
+        ],
+        "logprob": -0.48291584849357605,
+        "top_logprobs": [
+         {
+          "id": 279,
+          "token": " the",
+          "bytes": [
+           32,
+           116,
+           104,
+           101
+          ],
+          "logprob": -0.48291584849357605
+         },
+         {
+          "id": 6747,
+          "token": " India",
+          "bytes": [
+           32,
+           73,
+           110,
+           100,
+           105,
+           97
+          ],
+          "logprob": -2.905559539794922
+         },
+         {
+          "id": 264,
+          "token": " a",
+          "bytes": [
+           32,
+           97
+          ],
+          "logprob": -3.1723756790161133
+         },
+         {
+          "id": 9625,
+          "token": " France",
+          "bytes": [
+           32,
+           70,
+           114,
+           97,
+           110,
+           99,
+           101
+          ],
+          "logprob": -3.910336494445801
+         },
+         {
+          "id": 5616,
+          "token": " China",
+          "bytes": [
+           32,
+           67,
+           104,
+           105,
+           110,
+           97
+          ],
+          "logprob": -4.325979232788086
+         }
+        ]
+       }
+      ]
+     },
+     "finish_reason": "length"
+    }
+   ],
+   "model": "/home/raunak/Desktop/Parity/models/gguf/Qwen3-0.6B-Q8_0.gguf",
+   "system_fingerprint": "b12128-a01dff908",
+   "object": "text_completion",
+   "usage": {
+    "completion_tokens": 1,
+    "prompt_tokens": 3,
+    "total_tokens": 4,
+    "prompt_tokens_details": {
+     "cached_tokens": 2
+    }
+   }
+  },
+  {
+   "choices": [
+    {
+     "text": " is",
+     "index": 0,
+     "logprobs": {
+      "content": [
+       {
+        "id": 374,
+        "token": " is",
+        "bytes": [
+         32,
+         105,
+         115
+        ],
+        "logprob": -0.24179229140281677,
+        "top_logprobs": [
+         {
+          "id": 374,
+          "token": " is",
+          "bytes": [
+           32,
+           105,
+           115
+          ],
+          "logprob": -0.24179229140281677
+         },
+         {
+          "id": 11,
+          "token": ",",
+          "bytes": [
+           44
+          ],
+          "logprob": -2.650754451751709
+         },
+         {
+          "id": 572,
+          "token": " was",
+          "bytes": [
+           32,
+           119,
+           97,
+           115
+          ],
+          "logprob": -3.4255788326263428
+         },
+         {
+          "id": 323,
+          "token": " and",
+          "bytes": [
+           32,
+           97,
+           110,
+           100
+          ],
+          "logprob": -3.9764955043792725
+         },
+         {
+          "id": 304,
+          "token": " in",
+          "bytes": [
+           32,
+           105,
+           110
+          ],
+          "logprob": -4.0129923820495605
+         }
+        ]
+       }
+      ]
+     },
+     "finish_reason": "length"
+    }
+   ],
+   "model": "/home/raunak/Desktop/Parity/models/gguf/Qwen3-0.6B-Q8_0.gguf",
+   "system_fingerprint": "b12128-a01dff908",
+   "object": "text_completion",
+   "usage": {
+    "completion_tokens": 1,
+    "prompt_tokens": 4,
+    "total_tokens": 5,
+    "prompt_tokens_details": {
+     "cached_tokens": 3
+    }
+   }
+  },
+  {
+   "choices": [
+    {
+     "text": " Paris",
+     "index": 0,
+     "logprobs": {
+      "content": [
+       {
+        "id": 12095,
+        "token": " Paris",
+        "bytes": [
+         32,
+         80,
+         97,
+         114,
+         105,
+         115
+        ],
+        "logprob": -0.4049706757068634,
+        "top_logprobs": [
+         {
+          "id": 12095,
+          "token": " Paris",
+          "bytes": [
+           32,
+           80,
+           97,
+           114,
+           105,
+           115
+          ],
+          "logprob": -0.4049706757068634
+         },
+         {
+          "id": 7407,
+          "token": " located",
+          "bytes": [
+           32,
+           108,
+           111,
+           99,
+           97,
+           116,
+           101,
+           100
+          ],
+          "logprob": -3.657583713531494
+         },
+         {
+          "id": 279,
+          "token": " the",
+          "bytes": [
+           32,
+           116,
+           104,
+           101
+          ],
+          "logprob": -3.775312900543213
+         },
+         {
+          "id": 1112,
+          "token": "...",
+          "bytes": [
+           46,
+           46,
+           46
+          ],
+          "logprob": -4.26781702041626
+         },
+         {
+          "id": 30743,
+          "token": " ____",
+          "bytes": [
+           32,
+           95,
+           95,
+           95,
+           95
+          ],
+          "logprob": -4.298515796661377
+         }
+        ]
+       }
+      ]
+     },
+     "finish_reason": "length"
+    }
+   ],
+   "model": "/home/raunak/Desktop/Parity/models/gguf/Qwen3-0.6B-Q8_0.gguf",
+   "system_fingerprint": "b12128-a01dff908",
+   "object": "text_completion",
+   "usage": {
+    "completion_tokens": 1,
+    "prompt_tokens": 5,
+    "total_tokens": 6,
+    "prompt_tokens_details": {
+     "cached_tokens": 4
+    }
+   }
+  }
+ ]
+}

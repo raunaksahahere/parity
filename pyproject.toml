@@ -49,6 +49,7 @@ torch = { index = "pytorch-cpu" }
 dev = [
   "pytest>=8",
   "pytest-asyncio>=0.23",
+  "pytest-timeout>=2.3",
   "hypothesis>=6.100",
   "torch>=2.4",
   "ruff>=0.5",
@@ -80,4 +81,4 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = ["live: needs a running model server (skipped in CI)"]
-addopts = "-m 'not live'"
+addopts = "-m 'not live' --timeout=120"
