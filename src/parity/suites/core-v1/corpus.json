@@ -1,0 +1,105 @@
+{
+ "version": "core-v1",
+ "documents": [
+  {
+   "id": "prose-history",
+   "text": "The harbor town had been a quiet fishing village until the railway arrived in the spring of 1887. Within a decade its population had tripled, and the old wooden quay was replaced by a long stone pier. Merchants who once sold salted cod now traded in timber, coal and machine parts, and the narrow lanes filled with the sound of carts."
+  },
+  {
+   "id": "prose-science",
+   "text": "Photosynthesis converts light energy into chemical energy stored in glucose. In the chloroplast, chlorophyll absorbs mostly red and blue light, and the energy drives the splitting of water, releasing oxygen as a byproduct. The resulting electrons power a chain of reactions that ultimately fixes carbon dioxide into sugar."
+  },
+  {
+   "id": "prose-narrative",
+   "text": "Maria set the lantern on the stone ledge and listened. Somewhere below, water was dripping in a slow, uneven rhythm. She counted to twenty, then folded the map once more and tucked it into her coat. The tunnel ahead was narrow, but the air moving against her face meant that it led somewhere."
+  },
+  {
+   "id": "code-python",
+   "text": "def moving_average(values, window):\n    if window <= 0:\n        raise ValueError('window must be positive')\n    total = 0.0\n    out = []\n    for i, v in enumerate(values):\n        total += v\n        if i >= window:\n            total -= values[i - window]\n        if i >= window - 1:\n            out.append(total / window)\n    return out\n"
+  },
+  {
+   "id": "code-sql",
+   "text": "SELECT customer_id, COUNT(*) AS orders, SUM(total_amount) AS revenue\nFROM orders\nWHERE order_date >= DATE '2024-01-01'\nGROUP BY customer_id\nHAVING COUNT(*) > 3\nORDER BY revenue DESC\nLIMIT 10;\n"
+  },
+  {
+   "id": "math",
+   "text": "Let f(x) = x^3 - 6x^2 + 11x - 6. Then f(1) = 0, f(2) = 0 and f(3) = 0, so the polynomial factors as (x - 1)(x - 2)(x - 3). The derivative is f'(x) = 3x^2 - 12x + 11, which has two real roots between 1 and 3."
+  },
+  {
+   "id": "dialogue",
+   "text": "\"Did you lock the door?\" she asked.\n\"I think so,\" he said, patting his pockets. \"Wait. Where are my keys?\"\n\"On the kitchen table, where you always leave them.\"\n\"Then the door is definitely not locked.\" He laughed and turned back toward the house."
+  },
+  {
+   "id": "list-howto",
+   "text": "To repot a houseplant: first water it a day ahead so the soil holds together. Choose a pot one size larger with drainage holes. Loosen the root ball gently, trim any black or mushy roots, and place the plant at the same depth as before. Fill the gaps with fresh potting mix and water lightly."
+  },
+  {
+   "id": "news",
+   "text": "City council members voted on Tuesday to extend the bicycle lane network by twelve kilometers over the next two years. Supporters said the plan would reduce traffic injuries, while opponents argued that the cost was too high. The measure passed by seven votes to four after a three-hour debate."
+  },
+  {
+   "id": "legal",
+   "text": "The licensee may use, copy and distribute the software, provided that this notice is retained in all copies. The software is provided as is, without warranty of any kind, express or implied. In no event shall the authors be liable for any claim, damages or other liability arising from its use."
+  },
+  {
+   "id": "recipe",
+   "text": "Heat two tablespoons of olive oil in a wide pan and add one chopped onion. Cook gently for eight minutes until soft, then stir in two cloves of garlic and a teaspoon of smoked paprika. Add a tin of tomatoes, simmer for fifteen minutes, and season with salt, pepper and a pinch of sugar."
+  },
+  {
+   "id": "tech-explainer",
+   "text": "A hash table stores key-value pairs in an array. A hash function maps each key to an index, and collisions are resolved either by chaining entries in a list or by probing for the next free slot. With a good hash function and a bounded load factor, lookups take constant time on average."
+  },
+  {
+   "id": "french",
+   "text": "La bibliothèque municipale ouvre ses portes à neuf heures chaque matin. Les lecteurs peuvent emprunter jusqu'à six livres pour une durée de trois semaines. Pendant l'été, des ateliers de lecture sont organisés pour les enfants, et l'entrée est gratuite pour tous les habitants de la ville."
+  },
+  {
+   "id": "german",
+   "text": "Der Zug nach München fährt jeden Morgen um sieben Uhr dreißig vom Hauptbahnhof ab. Wegen Bauarbeiten kann es in den nächsten Wochen zu Verspätungen kommen. Reisende werden gebeten, sich vor der Abfahrt über aktuelle Änderungen zu informieren."
+  },
+  {
+   "id": "spanish",
+   "text": "El mercado central abre todos los días antes del amanecer. Los vendedores colocan frutas, verduras y pescado fresco sobre largas mesas de madera, y los clientes recorren los pasillos buscando las mejores ofertas. Al mediodía, casi todo se ha vendido y la plaza queda en silencio."
+  },
+  {
+   "id": "poetry",
+   "text": "The evening folds its hands of grey\nAcross the sleeping hill,\nAnd one by one the windows glow\nWhile all the lanes grow still.\nThe river keeps its own slow count\nOf everything it has carried down."
+  },
+  {
+   "id": "faq",
+   "text": "Q: How long does shipping take?\nA: Standard shipping takes three to five business days within the country. Express options arrive in one to two days.\nQ: Can I return an item?\nA: Yes, unused items can be returned within thirty days for a full refund."
+  },
+  {
+   "id": "biography",
+   "text": "Ada Lovelace was born in London in 1815, the daughter of the poet Lord Byron. Tutored in mathematics from an early age, she later collaborated with Charles Babbage and wrote extensive notes on his proposed Analytical Engine, including what many consider the first published algorithm intended for a machine."
+  },
+  {
+   "id": "json",
+   "text": "{\"name\": \"widget\", \"price\": 12.5, \"tags\": [\"tools\", \"hardware\"], \"dimensions\": {\"width\": 4, \"height\": 9}, \"in_stock\": true, \"supplier\": null}\n"
+  },
+  {
+   "id": "email",
+   "text": "Hi Jordan,\n\nThanks for sending over the draft. I read through it this morning and left a few comments in the margin, mostly about the structure of the second section. Could we meet on Thursday to go over them? I am free after lunch.\n\nBest,\nSam"
+  },
+  {
+   "id": "philosophy",
+   "text": "If a ship has all of its planks replaced one by one over many years, is it still the same ship? Some argue that identity depends on continuity of form, others on continuity of matter. The puzzle shows how much our everyday concept of sameness quietly depends on purpose and context."
+  },
+  {
+   "id": "geography",
+   "text": "The Danube rises in the Black Forest of Germany and flows southeast for nearly three thousand kilometers, passing through ten countries before emptying into the Black Sea. Four capital cities lie on its banks: Vienna, Bratislava, Budapest and Belgrade."
+  },
+  {
+   "id": "instructions",
+   "text": "Step one: unplug the device and remove the back cover using a small screwdriver. Step two: locate the battery connector, lift the tab, and disconnect it. Step three: slide the old battery out, insert the new one, and reconnect the cable before replacing the cover."
+  },
+  {
+   "id": "reviews",
+   "text": "I bought this blender three months ago and it still works like new. It crushes ice without any trouble and the jar is easy to clean. The only complaint is the noise, which is louder than I expected. Overall I would recommend it to anyone who makes smoothies every day."
+  },
+  {
+   "id": "sports",
+   "text": "In the final minutes, the home side pressed high and forced two quick turnovers. A low cross from the left found the substitute at the far post, and he steered it into the corner. The stadium erupted, and the visitors never recovered their composure."
+  }
+ ]
+}
