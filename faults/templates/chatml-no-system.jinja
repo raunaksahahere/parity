@@ -1,0 +1,6 @@
+{%- for m in messages -%}
+{%- if m.role != 'system' -%}
+{{- '<|im_start|>' + m.role + '\n' + m.content + '<|im_end|>\n' -}}
+{%- endif -%}
+{%- endfor -%}
+{%- if add_generation_prompt -%}{{- '<|im_start|>assistant\n' -}}{%- endif -%}

@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 
 from parity.cache import ArrayCache, stable_hash
+from parity.tokenization import TokenizerKit
 
 
 class ReferenceUnavailableError(RuntimeError):
@@ -61,28 +62,19 @@ class HFReference:
             self._model = model
         return self._model
 
-    # -- tokenization / templates ---------------------------------------
-    def encode(self, text: str) -> list[int]:
-        return list(self.tokenizer.encode(text, add_special_tokens=False))
+    # -- tokenization / templates (delegated to TokenizerKit) -------------
+    @property
+    def kit(self) -> TokenizerKit:
+        return TokenizerKit(self.tokenizer)
 
-    def render_chat(
-        self,
-        messages: Sequence[dict[str, Any]],
-        tools: Sequence[dict[str, Any]] | None = None,
-        add_generation_prompt: bool = True,
-        **template_kwargs: Any,
-    ) -> str:
-        text = self.tokenizer.apply_chat_template(
-            list(messages),
-            tools=list(tools) if tools else None,
-            add_generation_prompt=add_generation_prompt,
-            tokenize=False,
-            **template_kwargs,
-        )
-        return str(text)
+    def encode(self, text: str) -> list[int]:
+        return self.kit.encode(text)
+
+    def render_chat(self, messages: Sequence[dict[str, Any]], **kwargs: Any) -> str:
+        return self.kit.render_chat(messages, **kwargs)
 
     def chat_token_ids(self, messages: Sequence[dict[str, Any]], **kwargs: Any) -> list[int]:
-        return self.encode(self.render_chat(messages, **kwargs))
+        return self.kit.chat_token_ids(messages, **kwargs)
 
     # -- model calls -----------------------------------------------------
     def teacher_force(self, ids: Sequence[int], top_k: int) -> dict[str, np.ndarray]:

@@ -13,3 +13,4 @@ models/
 bin/
 *.gguf
 .env
+runs_baseline.log
