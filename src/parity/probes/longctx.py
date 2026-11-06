@@ -74,6 +74,35 @@ def build_case(
     return Case(length, depth, render(lo), count(lo), code)
 
 
+def diagnose_accounting(diffs: dict[str, int]) -> list[str]:
+    """Explain token-accounting mismatches (``diffs`` maps "length/depth" to local - server).
+
+    The same difference at every length, including the shortest, is a template or
+    tokenization difference rather than truncation; a shortfall that appears or grows with
+    length is truncation.
+    """
+    bad = {k: d for k, d in diffs.items() if d != 0}
+    if not bad:
+        return []
+    values = set(diffs.values())
+    if len(values) == 1:
+        d = next(iter(values))
+        return [
+            f"every prompt, at every length, differs from the local render by {d:+d} tokens "
+            "(local minus server): a chat-template or tokenization difference, not truncation"
+        ]
+    out = []
+    for key, d in bad.items():
+        if d > 0:
+            out.append(
+                f"{key}: server counted {d} fewer prompt tokens than the prompt has "
+                f"(silent truncation of {d})"
+            )
+        else:
+            out.append(f"{key}: server counted {-d} more prompt tokens than the prompt has")
+    return out
+
+
 class LongContextProbe(Probe):
     id = "longctx.needle"
     family = "longctx"
@@ -93,6 +122,7 @@ class LongContextProbe(Probe):
         n_requests = 0
         hard: list[str] = []
         table: dict[str, dict[str, Any]] = {}
+        diffs: dict[str, int] = {}  # key -> local count minus server count
 
         for length in lengths:
             for depth, frac in DEPTHS:
@@ -120,12 +150,10 @@ class LongContextProbe(Probe):
                 ) or ""
                 found = case.answer in content
                 table[key] = {"local": case.local_tokens, "server": server_tokens, "found": found}
-                if server_tokens is not None and server_tokens < case.local_tokens:
-                    hard.append(
-                        f"{key}: server counted {server_tokens} prompt tokens but the prompt "
-                        f"has {case.local_tokens} (silent truncation of "
-                        f"{case.local_tokens - server_tokens})"
-                    )
+                if server_tokens is not None:
+                    diffs[key] = case.local_tokens - server_tokens
+
+        hard.extend(diagnose_accounting(diffs))
 
         evaluated = [v for v in table.values() if "found" in v]
         found_rate = sum(v["found"] for v in evaluated) / max(1, len(evaluated))

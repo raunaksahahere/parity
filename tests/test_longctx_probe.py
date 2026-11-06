@@ -94,3 +94,13 @@ def test_built_prompt_length_is_tight_and_never_exceeds_target(toy_kit: Tokenize
         case = build_case(ctx, target, "middle", 0.5, 0, {})
         assert target - 60 <= case.local_tokens <= target
         assert case.answer in case.messages[0]["content"]
+
+
+def test_constant_accounting_offset_is_diagnosed_as_template_not_truncation() -> None:
+    from parity.probes.longctx import diagnose_accounting
+
+    msg = diagnose_accounting({"512/start": 4, "512/end": 4, "2048/start": 4})
+    assert len(msg) == 1 and "template" in msg[0] and "truncation" in msg[0].split("not ")[-1]
+    trunc = diagnose_accounting({"512/start": 0, "2048/start": 600, "4032/start": 2500})
+    assert len(trunc) == 2 and all("silent truncation" in m for m in trunc)
+    assert diagnose_accounting({"512/start": 0}) == []
