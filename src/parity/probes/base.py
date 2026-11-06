@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -48,12 +48,23 @@ class ProbeResult(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class ReferenceLike(Protocol):
+    """What probes need from a reference implementation."""
+
+    def teacher_force(self, ids: list[int], top_k: int) -> dict[str, Any]: ...
+
+    def next_token_logprobs(self, prefix_ids: list[int]) -> Any: ...
+
+    def greedy(self, prefix_ids: list[int], n_tokens: int) -> list[int]: ...
+
+
 @dataclass
 class ProbeContext:
     client: EndpointClient
     adapter: Adapter
     model: str
     kit: TokenizerKit
+    reference: ReferenceLike | None = None
     alpha: float = 0.05
     seed: int = 0
     budget: int | None = None

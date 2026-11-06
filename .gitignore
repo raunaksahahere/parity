@@ -14,3 +14,4 @@ bin/
 *.gguf
 .env
 runs_baseline.log
+runs_dist.log
