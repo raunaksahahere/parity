@@ -18,3 +18,4 @@ runs_dist.log
 runs_greedy.log
 runs_cli.log
 .hypothesis/
+demo-runs/
