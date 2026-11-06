@@ -105,3 +105,42 @@ def to_markdown(summary: dict[str, Any]) -> str:
             f"{f['median_requests']:.0f} | {f['median_seconds']:.0f} |"
         )
     return "\n".join(out) + "\n"
+
+
+def to_readme_table(summary: dict[str, Any]) -> str:
+    """Compact results table for the README."""
+    n, fp = summary["control_runs"], summary["control_false_positives"]
+    lines = []
+    if n:
+        lo, hi = clopper_pearson(fp, n)
+        lines.append(
+            f"False positives on correct deployments (held-out controls): **{fp}/{n}** runs "
+            f"(95% CI {100 * lo:.1f}-{100 * hi:.1f}%), nominal alpha {summary['alpha']}.\n"
+        )
+    lines += [
+        "| Injected fault | Detected | Flagged by | Median requests | Median time |",
+        "|---|---|---|---:|---:|",
+    ]
+    for name, f in summary["faults"].items():
+        by = (
+            ", ".join(
+                SHORT[p] if k == f["n"] else f"{SHORT[p]} ({k}/{f['n']})"
+                for p, k in f["probe_flags"].items()
+                if k
+            )
+            or "nothing"
+        )
+        secs = f["median_seconds"]
+        t = f"{secs:.0f} s" if secs < 120 else f"{secs / 60:.1f} min"
+        lines.append(
+            f"| {name.removeprefix('fault-')} | {f['deviation']}/{f['n']} | {by} | "
+            f"{f['median_requests']:.0f} | {t} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def splice(text: str, marker: str, body: str) -> str:
+    """Replace the content between ``<!-- marker:BEGIN -->`` and ``<!-- marker:END -->``."""
+    begin, end = f"<!-- {marker}:BEGIN -->", f"<!-- {marker}:END -->"
+    i, j = text.index(begin) + len(begin), text.index(end)
+    return text[:i] + "\n" + body + text[j:]
