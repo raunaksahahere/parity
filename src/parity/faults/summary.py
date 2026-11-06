@@ -39,6 +39,17 @@ def _pct(k: int, n: int) -> str:
     return f"{k}/{n} ({100 * k / n:.0f}%, 95% CI {100 * lo:.0f}-{100 * hi:.0f}%)"
 
 
+def fail_fast_requests(row: dict[str, Any]) -> int:
+    """Requests a ``--fail-fast`` run would have used: probes run in suite order and are
+    independent, so this is the cumulative count through the first deviating probe."""
+    total = 0
+    for p in PROBES:
+        total += int(row.get("probe_requests", {}).get(p, 0))
+        if row["probe_status"].get(p) == "DEVIATION":
+            break
+    return total
+
+
 def summarize(rows: list[dict[str, Any]], alpha: float = 0.05) -> dict[str, Any]:
     by_sc: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
@@ -56,6 +67,7 @@ def summarize(rows: list[dict[str, Any]], alpha: float = 0.05) -> dict[str, Any]
             "pass": sum(r["verdict"] == "PASS" for r in rs),
             "probe_flags": probe_flags,
             "median_requests": statistics.median(r["requests"] for r in rs),
+            "median_fail_fast_requests": statistics.median(fail_fast_requests(r) for r in rs),
             "median_seconds": statistics.median(r["seconds"] for r in rs),
             "min_requests": min(r["requests"] for r in rs),
             "max_requests": max(r["requests"] for r in rs),
@@ -95,14 +107,16 @@ def to_markdown(summary: dict[str, Any]) -> str:
         "Each probe cell: repetitions in which the probe returned DEVIATION (after Holm).",
         "",
         f"| Fault | Reps | Detected (verdict DEVIATION) | {header} "
-        "| Median requests | Median seconds |",
-        "|---|---:|---|" + "---:|" * len(PROBES) + "---:|---:|",
+        "| Median requests (full suite) | Median requests to detection (--fail-fast) "
+        "| Median seconds (full suite) |",
+        "|---|---:|---|" + "---:|" * len(PROBES) + "---:|---:|---:|",
     ]
     for name, f in summary["faults"].items():
         cells = " | ".join(f"{f['probe_flags'][p]}/{f['n']}" for p in PROBES)
         out.append(
             f"| {name} | {f['n']} | {_pct(f['deviation'], f['n'])} | {cells} | "
-            f"{f['median_requests']:.0f} | {f['median_seconds']:.0f} |"
+            f"{f['median_requests']:.0f} | {f['median_fail_fast_requests']:.0f} | "
+            f"{f['median_seconds']:.0f} |"
         )
     return "\n".join(out) + "\n"
 
@@ -118,8 +132,9 @@ def to_readme_table(summary: dict[str, Any]) -> str:
             f"(95% CI {100 * lo:.1f}-{100 * hi:.1f}%), nominal alpha {summary['alpha']}.\n"
         )
     lines += [
-        "| Injected fault | Detected | Flagged by | Median requests | Median time |",
-        "|---|---|---|---:|---:|",
+        "| Injected fault | Detected | Flagged by | Requests to detection (fail-fast) "
+        "| Full-suite requests | Full-suite time |",
+        "|---|---|---|---:|---:|---:|",
     ]
     for name, f in summary["faults"].items():
         by = (
@@ -134,7 +149,7 @@ def to_readme_table(summary: dict[str, Any]) -> str:
         t = f"{secs:.0f} s" if secs < 120 else f"{secs / 60:.1f} min"
         lines.append(
             f"| {name.removeprefix('fault-')} | {f['deviation']}/{f['n']} | {by} | "
-            f"{f['median_requests']:.0f} | {t} |"
+            f"{f['median_fail_fast_requests']:.0f} | {f['median_requests']:.0f} | {t} |"
         )
     return "\n".join(lines) + "\n"
 

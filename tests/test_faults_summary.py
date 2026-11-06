@@ -9,6 +9,7 @@ def row(sc: str, kind: str, rep: int, verdict: str, flagged: list[str]) -> dict:
         "scenario": sc, "kind": kind, "rep": rep, "verdict": verdict, "requests": 100 + rep,
         "seconds": 10.0 + rep,
         "probe_status": {p: ("DEVIATION" if p in flagged else "PASS") for p in PROBES},
+        "probe_requests": {p: 10 for p in PROBES},
     }  # fmt: skip
 
 
@@ -55,3 +56,11 @@ def test_scenario_catalogue_is_consistent() -> None:
     benign = {s.server.key for s in SCENARIOS if s.kind == "benign"}
     assert all(s.server.key not in benign for s in SCENARIOS if s.kind == "control")
     assert by_name(["fault-topk-ignored"])[0].mutation is not None
+
+
+def test_fail_fast_requests_stop_at_the_first_deviating_probe() -> None:
+    from parity.faults.summary import fail_fast_requests
+
+    r = row("f", "fault", 0, "DEVIATION", ["greedy.agreement", "tools.structured"])
+    assert fail_fast_requests(r) == 30  # template + distribution + greedy
+    assert fail_fast_requests(row("c", "control", 0, "PASS", [])) == 60

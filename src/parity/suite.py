@@ -41,6 +41,7 @@ PROBE_CLASSES: dict[str, type[Probe]] = {
 STATISTICAL_PROBES = frozenset(
     {"distribution.teacher_forced", "greedy.agreement", "sampler.conformance", "tools.structured"}
 )
+FAIL_FAST_NOTE = "not run: --fail-fast stopped the suite after a deviation"
 SUITES = {"core": list(PROBE_CLASSES), "quick": ["template.token_counts", "tools.structured"]}
 
 
@@ -100,6 +101,7 @@ class Suite:
     options: dict[str, Any] = field(default_factory=dict)
     calibration: Calibration | None = None
     calibration_path: str = ""
+    fail_fast: bool = False  # stop after the first DEVIATION (later probes are not run)
 
     def probe_ids(self) -> list[str]:
         ids = self.probes or SUITES[self.name]
@@ -161,6 +163,17 @@ class Suite:
             )
             results: list[ProbeResult] = []
             for pid in self.probe_ids():
+                if self.fail_fast and any(r.status is Status.DEVIATION for r in results):
+                    results.append(
+                        ProbeResult(
+                            probe=pid,
+                            family=PROBE_CLASSES[pid].family,
+                            version=PROBE_CLASSES[pid].version,
+                            status=Status.SKIPPED,
+                            notes=[FAIL_FAST_NOTE],
+                        )
+                    )
+                    continue
                 saved = run_dir / "probes" / f"{pid}.json" if run_dir else None
                 if resume and saved is not None and saved.exists():
                     results.append(ProbeResult.model_validate_json(saved.read_text()))

@@ -181,3 +181,13 @@ def test_hf_reference_resolves_a_local_directory_without_loading_weights(
     ref = hf_reference(str(tmp_path), revision="deadbeef", cache_dir=tmp_path / "cache")
     assert ref.info.revision == "deadbeef" and ref.info.kind == "hf:local"
     assert ref.kit.decode(ref.kit.encode("hello world")) == "hello world"
+
+
+async def test_fail_fast_stops_after_the_first_deviation(toy_kit: TokenizerKit) -> None:
+    ep = FakeEndpoint(toy_kit, extra_prompt_tokens=1, seed=12)
+    suite, target, ref = make(toy_kit, ep, fail_fast=True)
+    rep = await suite.arun(target, ref)
+    st = by_probe(rep)
+    assert st["template.token_counts"] is Status.DEVIATION and rep.exit_code == 1
+    assert all(v is Status.SKIPPED for k, v in st.items() if k != "template.token_counts")
+    assert rep.requests_total == 7 and not rep.lower_power

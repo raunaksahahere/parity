@@ -54,6 +54,10 @@ inputs:
       fails on inconclusive results and errors; never always succeeds (report only).
     required: false
     default: deviation
+  fail-fast:
+    description: "'true' stops at the first deviation to save requests (later probes are not run)."
+    required: false
+    default: "false"
   out:
     description: Directory for reports.
     required: false
@@ -99,6 +103,7 @@ runs:
         INPUT_CLAIMED_CONTEXT: ${{ inputs.claimed-context }}
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_OUT: ${{ inputs.out }}
+        INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
         args=(run --model "$INPUT_MODEL" --target "$INPUT_TARGET" --reference "$INPUT_REFERENCE"
               --suite "$INPUT_SUITE" --claimed-context "$INPUT_CLAIMED_CONTEXT" --out "$INPUT_OUT")
@@ -107,6 +112,7 @@ runs:
         [ -n "$INPUT_CALIBRATION" ] && args+=(--calibration "$INPUT_CALIBRATION")
         [ -n "$INPUT_SERVED_MODEL" ] && args+=(--served-model "$INPUT_SERVED_MODEL")
         [ -n "$INPUT_API_KEY_ENV" ] && args+=(--api-key-env "$INPUT_API_KEY_ENV")
+        [ "$INPUT_FAIL_FAST" = "true" ] && args+=(--fail-fast)
         set +e
         "$RUNNER_TEMP/parity-venv/bin/parity" "${args[@]}"
         code=$?

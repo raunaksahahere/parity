@@ -110,6 +110,7 @@ def run(
         ".parity-cache"
     ),
     seed: int = 0,
+    fail_fast: Annotated[bool, typer.Option(help="Stop at the first deviation")] = False,
 ) -> None:
     """Compare an endpoint with a reference implementation of the same model."""
     try:
@@ -120,7 +121,7 @@ def run(
         s = Suite(
             name=suite, alpha=alpha, budget=budget, seed=seed, probes=probes,
             options={"claimed_context": claimed_context}, calibration=cal,
-            calibration_path=str(calibration or ""),
+            calibration_path=str(calibration or ""), fail_fast=fail_fast,
         )  # fmt: skip
         tgt = Target(target, served_model or model, adapter, api_key_env, concurrency, rate_per_s)
         typer.echo(f"Running suite '{suite}' against {target} (reference {ref.info.kind})")

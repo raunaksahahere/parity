@@ -43,7 +43,10 @@ def decide(results: list[ProbeResult], alpha: float) -> tuple[list[ProbeOutcome]
     finals = [o.final_status for o in outcomes]
     evaluated = [s for s in finals if s is not Status.SKIPPED]
     skipped_core = any(
-        o.final_status is Status.SKIPPED and o.result.probe in CORE_STATISTICAL for o in outcomes
+        o.final_status is Status.SKIPPED
+        and o.result.probe in CORE_STATISTICAL
+        and not any(n.startswith("not run: --fail-fast") for n in o.result.notes)
+        for o in outcomes
     )
     lower_power = skipped_core or any(o.result.power == "lower" for o in outcomes)
 
