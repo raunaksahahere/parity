@@ -1,0 +1,136 @@
+name: Parity upgrade gate
+description: >
+  Check that an inference endpoint still serves the model you think it does before an
+  upgrade is promoted. Exit status follows the verdict (see fail-on).
+author: raunaksahahere
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  model:
+    description: Hugging Face model id (or local path) of the reference model.
+    required: true
+  target:
+    description: Base URL of the endpoint under test.
+    required: true
+  revision:
+    description: Pinned reference revision (commit hash). Strongly recommended.
+    required: false
+    default: ""
+  reference:
+    description: "'hf:local' (default) or the URL of a reference endpoint."
+    required: false
+    default: hf:local
+  suite:
+    description: Suite to run (core or quick).
+    required: false
+    default: core
+  budget:
+    description: Maximum number of requests sent to the target (empty for no limit).
+    required: false
+    default: ""
+  calibration:
+    description: Path to a calibration.json produced by `parity calibrate`.
+    required: false
+    default: ""
+  served-model:
+    description: Model name to send to the target, if different from `model`.
+    required: false
+    default: ""
+  api-key-env:
+    description: >
+      Name of an environment variable that holds the target's API key. Pass the secret to the
+      step through `env:`; it is never accepted as an input so it cannot appear in logs.
+    required: false
+    default: ""
+  claimed-context:
+    description: Context window (tokens) the endpoint is supposed to support.
+    required: false
+    default: "4096"
+  fail-on:
+    description: >
+      deviation (default) fails the step only when a deviation is detected; inconclusive also
+      fails on inconclusive results and errors; never always succeeds (report only).
+    required: false
+    default: deviation
+  out:
+    description: Directory for reports.
+    required: false
+    default: parity-report
+
+outputs:
+  verdict:
+    description: PASS, DEVIATION or INCONCLUSIVE.
+    value: ${{ steps.run.outputs.verdict }}
+  exit-code:
+    description: Parity exit code (0 pass, 1 deviation, 2 inconclusive or error).
+    value: ${{ steps.run.outputs.exit-code }}
+  report-dir:
+    description: Directory holding report.html, report.md and report.json.
+    value: ${{ steps.run.outputs.report-dir }}
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v5
+
+    - name: Install parity
+      shell: bash
+      run: |
+        uv venv "$RUNNER_TEMP/parity-venv"
+        uv pip install --python "$RUNNER_TEMP/parity-venv/bin/python" \
+          --extra-index-url https://download.pytorch.org/whl/cpu \
+          "${GITHUB_ACTION_PATH}[reference]"
+
+    - name: Run parity
+      id: run
+      shell: bash
+      env:
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_TARGET: ${{ inputs.target }}
+        INPUT_REVISION: ${{ inputs.revision }}
+        INPUT_REFERENCE: ${{ inputs.reference }}
+        INPUT_SUITE: ${{ inputs.suite }}
+        INPUT_BUDGET: ${{ inputs.budget }}
+        INPUT_CALIBRATION: ${{ inputs.calibration }}
+        INPUT_SERVED_MODEL: ${{ inputs.served-model }}
+        INPUT_API_KEY_ENV: ${{ inputs.api-key-env }}
+        INPUT_CLAIMED_CONTEXT: ${{ inputs.claimed-context }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_OUT: ${{ inputs.out }}
+      run: |
+        args=(run --model "$INPUT_MODEL" --target "$INPUT_TARGET" --reference "$INPUT_REFERENCE"
+              --suite "$INPUT_SUITE" --claimed-context "$INPUT_CLAIMED_CONTEXT" --out "$INPUT_OUT")
+        [ -n "$INPUT_REVISION" ] && args+=(--revision "$INPUT_REVISION")
+        [ -n "$INPUT_BUDGET" ] && args+=(--budget "$INPUT_BUDGET")
+        [ -n "$INPUT_CALIBRATION" ] && args+=(--calibration "$INPUT_CALIBRATION")
+        [ -n "$INPUT_SERVED_MODEL" ] && args+=(--served-model "$INPUT_SERVED_MODEL")
+        [ -n "$INPUT_API_KEY_ENV" ] && args+=(--api-key-env "$INPUT_API_KEY_ENV")
+        set +e
+        "$RUNNER_TEMP/parity-venv/bin/parity" "${args[@]}"
+        code=$?
+        set -e
+        report_dir=$(ls -dt "$INPUT_OUT"/*/ 2>/dev/null | head -1)
+        case $code in 0) verdict=PASS;; 1) verdict=DEVIATION;; *) verdict=INCONCLUSIVE;; esac
+        {
+          echo "verdict=$verdict"
+          echo "exit-code=$code"
+          echo "report-dir=${report_dir%/}"
+        } >> "$GITHUB_OUTPUT"
+        if [ -n "$report_dir" ] && [ -f "${report_dir}report.md" ]; then
+          cat "${report_dir}report.md" >> "$GITHUB_STEP_SUMMARY"
+        fi
+        case "$INPUT_FAIL_ON" in
+          never) exit 0;;
+          inconclusive) exit $code;;
+          *) [ "$code" -eq 1 ] && exit 1; exit 0;;
+        esac
+
+    - name: Upload report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: parity-report
+        path: ${{ inputs.out }}
+        if-no-files-found: ignore

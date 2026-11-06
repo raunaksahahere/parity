@@ -62,6 +62,25 @@ class Reference:
     info: ReferenceInfo
 
 
+def hf_reference(
+    model: str,
+    *,
+    revision: str | None = None,
+    dtype: str = "float32",
+    cache_dir: Path = Path(".parity-cache"),
+) -> Reference:
+    """Build the local Hugging Face reference for ``model`` (a hub id or a local directory).
+
+    Hub ids are downloaded at ``revision`` (default: the current commit, which is recorded in
+    the report); reference results are cached on disk under that revision.
+    """
+    from parity.reference import build_hf_reference
+
+    hf = build_hf_reference(model, revision=revision, dtype=dtype, cache_dir=cache_dir)
+    info = ReferenceInfo(kind="hf:local", model_id=model, revision=hf.revision, dtype=dtype)
+    return Reference(hf.kit, hf, info)
+
+
 def sanitize_url(url: str) -> str:
     """Drop credentials, query and fragment so reports never carry secrets."""
     p = urlsplit(url)

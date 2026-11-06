@@ -1,0 +1,12 @@
+.git
+.venv
+models
+bin
+runs
+parity-runs
+.parity-cache
+**/__pycache__
+.mypy_cache
+.ruff_cache
+.pytest_cache
+dist

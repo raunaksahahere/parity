@@ -15,7 +15,7 @@ from parity.probes.base import ProbeResult
 from parity.render import to_html, to_markdown, write_reports
 from parity.report_model import ReferenceInfo, RunReport
 from parity.stats.calibration import FLOORS, Calibration, benign_values, calibrate_threshold
-from parity.suite import PROBE_CLASSES, SUITES, Reference, Suite, Target
+from parity.suite import PROBE_CLASSES, SUITES, Reference, Suite, Target, hf_reference
 
 app = typer.Typer(
     help="Statistical conformance testing for LLM inference endpoints.", no_args_is_help=True
@@ -37,13 +37,10 @@ def _build_reference(
     from parity.client import EndpointClient
     from parity.detect import detect_adapter
     from parity.endpoint_reference import EndpointReference
-    from parity.reference import build_hf_reference
     from parity.tokenization import TokenizerKit
 
     if reference == "hf:local":
-        hf = build_hf_reference(model, revision=revision, dtype=dtype, cache_dir=cache_dir)
-        info = ReferenceInfo(kind="hf:local", model_id=model, revision=hf.revision, dtype=dtype)
-        return Reference(hf.kit, hf, info)
+        return hf_reference(model, revision=revision, dtype=dtype, cache_dir=cache_dir)
     if reference.startswith(("http://", "https://")):
         kit = TokenizerKit.from_pretrained(model)
 
@@ -276,18 +273,79 @@ def history(
     h.close()
 
 
-@app.command("inject-faults")
-def inject_faults(
-    args: Annotated[
-        list[str] | None, typer.Argument(help="Arguments for the validation harness")
+@app.command()
+def canary(
+    model: Annotated[str, typer.Option(help="HF model id or local directory")],
+    target: Annotated[str, typer.Option(help="Base URL of the endpoint under test")],
+    interval: Annotated[float, typer.Option(help="Seconds between runs")] = 3600.0,
+    port: Annotated[int, typer.Option(help="Port for the Prometheus /metrics endpoint")] = 9108,
+    suite: str = "core",
+    reference: str = "hf:local",
+    revision: str | None = None,
+    served_model: str | None = None,
+    adapter: str = "auto",
+    api_key_env: str | None = None,
+    calibration: Path | None = None,
+    budget: int | None = None,
+    claimed_context: int = 4096,
+    out: Path = Path("parity-runs"),
+    max_runs: Annotated[
+        int | None, typer.Option(help="Stop after N runs (default: forever)")
     ] = None,
+    dtype: str = "float32",
+    cache_dir: Path = Path(".parity-cache"),
 ) -> None:
-    """Run the fault-injection validation study (see docs/validation.md)."""
+    """Run the suite on a schedule and expose the latest result to Prometheus."""
+    import time
+
+    from parity.exporter import CanaryState, serve
+
+    try:
+        ref = _build_reference(model, reference, revision, dtype, cache_dir, None, api_key_env)
+        cal = Calibration.load(calibration) if calibration else None
+    except Exception as exc:
+        raise _fail(f"{type(exc).__name__}: {exc}") from exc
+    state = CanaryState()
+    serve(state, port)
+    typer.echo(f"canary: metrics on :{port}/metrics, running every {interval:g}s")
+    n = 0
+    while max_runs is None or n < max_runs:
+        started = time.monotonic()
+        try:
+            canary_suite = Suite(
+                name=suite,
+                budget=budget,
+                options={"claimed_context": claimed_context},
+                calibration=cal,
+                calibration_path=str(calibration or ""),
+            )
+            tgt = Target(target, served_model or model, adapter, api_key_env)
+            rep = canary_suite.run(tgt, ref, out_dir=out)
+            write_reports(rep, out / rep.run_id)
+            db = History(out / "history.duckdb")
+            db.record(rep)
+            db.close()
+            state.update(rep)
+            typer.echo(f"canary: {rep.verdict.value} ({rep.requests_total} requests)")
+        except Exception as exc:
+            state.update(None, error=True)
+            typer.echo(f"canary: run failed: {type(exc).__name__}: {exc}", err=True)
+        n += 1
+        if max_runs is None or n < max_runs:
+            time.sleep(max(0.0, interval - (time.monotonic() - started)))
+
+
+@app.command(
+    "inject-faults",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def inject_faults(ctx: typer.Context) -> None:
+    """Run the fault-injection validation study (`list`, `run`, `summarize`)."""
     try:
         from parity.faults.cli import main as faults_main
     except ImportError as exc:
         raise _fail("the fault-injection harness is not available in this install") from exc
-    raise typer.Exit(faults_main(args or []))
+    raise typer.Exit(faults_main(list(ctx.args)))
 
 
 @app.command()

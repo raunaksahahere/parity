@@ -2,6 +2,6 @@
 
 __version__ = "0.1.0.dev0"
 
-from parity.suite import Reference, Suite, Target
+from parity.suite import Reference, Suite, Target, hf_reference
 
-__all__ = ["Reference", "Suite", "Target", "__version__"]
+__all__ = ["Reference", "Suite", "Target", "__version__", "hf_reference"]

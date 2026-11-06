@@ -170,3 +170,14 @@ def test_sanitize_url() -> None:
     assert (
         sanitize_url("https://k:v@api.example.com:9/x/y?key=1#f") == "https://api.example.com:9/x/y"
     )
+
+
+def test_hf_reference_resolves_a_local_directory_without_loading_weights(
+    toy_kit: TokenizerKit, tmp_path: Path
+) -> None:
+    from parity import hf_reference
+
+    toy_kit.tokenizer.save_pretrained(tmp_path)
+    ref = hf_reference(str(tmp_path), revision="deadbeef", cache_dir=tmp_path / "cache")
+    assert ref.info.revision == "deadbeef" and ref.info.kind == "hf:local"
+    assert ref.kit.decode(ref.kit.encode("hello world")) == "hello world"
