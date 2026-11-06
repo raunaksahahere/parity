@@ -44,6 +44,9 @@ class LlamaServerConfig:
     batch_size: int | None = None
     ubatch_size: int | None = None
     chat_template_file: Path | None = None
+    # Host-RAM prompt cache (llama.cpp --cache-ram, default 8192 MiB). It grows with every
+    # distinct prompt; on small machines it pushes the system into swap. None keeps the default.
+    cache_ram_mib: int | None = None
     extra_args: tuple[str, ...] = ()
     port: int = 0
     log_path: Path | None = None
@@ -92,6 +95,8 @@ class LlamaServer:
             cmd += ["-b", str(c.batch_size)]
         if c.ubatch_size:
             cmd += ["-ub", str(c.ubatch_size)]
+        if c.cache_ram_mib is not None:
+            cmd += ["--cache-ram", str(c.cache_ram_mib)]
         if c.chat_template_file:
             cmd += ["--chat-template-file", str(c.chat_template_file.resolve())]
         cmd += list(c.extra_args)

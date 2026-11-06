@@ -105,3 +105,16 @@ midpoint between two consecutive cumulative masses (closest to the nominal 0.6, 
 >= 4% probability, >= 5% of mass excluded), so jitter below 0.02 cannot move the boundary;
 min_p cutoffs get the analogous margin check. The study was re-run in full with v2; the v1
 results are kept in docs/data for transparency.
+
+## D12. Study servers run with llama.cpp's host prompt cache disabled
+llama.cpp b12128 keeps KV states of past prompts in host RAM (`--cache-ram`, default
+8192 MiB). The study sends thousands of distinct prompts, so the cache filled toward its
+limit, the server reached 4.3 GB of anonymous memory on this 7 GB machine, and the system
+swapped (repetitions slowed from ~143 s to ~220 s). From 2026-11-07 00:55 IST the harness starts
+every server with `--cache-ram 0`. In the second validation run, the eight scenarios that had
+already completed (CPU control and eight faults) ran with the default cache; the partially
+finished `control-gpu-p1-smallbatch` was discarded (raw rows kept as
+`aborted-smallbatch-with-prompt-cache.jsonl`) and re-run with the cache disabled, as were
+`control-gpu-p2` and the three quantizations. Each scenario is internally consistent. Disabling
+a cache is a benign deployment difference, which is the kind of variation the held-out controls
+exist to test; `LlamaServerConfig.cache_ram_mib` exposes the setting.

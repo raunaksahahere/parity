@@ -42,6 +42,9 @@ class ServerSpec:
     threads: int | None = None
     template_file: str | None = None
     extra_args: tuple[str, ...] = ()
+    # 0 disables llama.cpp's host-RAM prompt cache: with its 8 GiB default the study drove this
+    # 7 GB machine into swap (see docs/decisions.md D12)
+    cache_ram_mib: int | None = 0
 
     @property
     def key(self) -> str:
@@ -61,6 +64,7 @@ class ServerSpec:
             if self.template_file
             else None,
             extra_args=self.extra_args,
+            cache_ram_mib=self.cache_ram_mib,
             log_path=log_path,
         )
 

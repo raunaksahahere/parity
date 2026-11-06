@@ -24,6 +24,11 @@ re-run with the same calibration. The **Results** section is the second run. Rep
 | Suite | `core` (all six probes), `core-v1` data, familywise alpha 0.05, claimed context 4096 |
 | Machine load | A single user's laptop. Light editing, a few short test runs and one low-priority (`nice 19`) Docker image build happened while the study ran, so the wall-clock figures are "laptop under light concurrent use", not an isolated benchmark |
 
+**Prompt cache.** In the second run, the CPU control and eight fault scenarios ran with
+llama.cpp's default 8 GiB host prompt cache; it drove the machine into swap, so the remaining
+scenarios (both GPU controls and the three quantizations) ran with `--cache-ram 0`
+(decision D12). Each scenario uses one setting throughout.
+
 **Backends.** GPU deployments run on the RX 6500M through Vulkan (the server log line
 `offloaded 29/29 layers to GPU` is asserted at start-up); CPU deployments use the CPU build.
 
