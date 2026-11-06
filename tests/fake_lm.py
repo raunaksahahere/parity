@@ -57,23 +57,34 @@ class FakeReference:
 
 
 def lm_server(lm: FakeLM) -> httpx.MockTransport:
-    """A llama.cpp-shaped /v1/completions endpoint serving ``lm``."""
+    """A llama.cpp-shaped /v1/completions endpoint serving ``lm`` (greedy for n>1 tokens)."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
-        lp = lm.logprobs(body["prompt"])
         k = int(body.get("logprobs", 1))
-        order = np.argsort(-lp)[:k]
-        top = [{"id": int(i), "token": f"t{i}", "logprob": float(lp[i])} for i in order]
-        tok = int(order[0])
-        item = {"id": tok, "token": f"t{tok}", "logprob": float(lp[tok]), "top_logprobs": top}
+        n = int(body.get("max_tokens", 1))
+        ctx = list(body["prompt"])
+        items = []
+        for _ in range(n):
+            lp = lm.logprobs(ctx)
+            order = np.argsort(-lp)[:k]
+            top = [{"id": int(i), "token": f"t{i}", "logprob": float(lp[i])} for i in order]
+            tok = int(order[0])
+            items.append(
+                {"id": tok, "token": f"t{tok}", "logprob": float(lp[tok]), "top_logprobs": top}
+            )
+            ctx.append(tok)
         return httpx.Response(
             200,
             json={
                 "choices": [
-                    {"text": f"t{tok}", "finish_reason": "length", "logprobs": {"content": [item]}}
+                    {
+                        "text": "".join(i["token"] for i in items),
+                        "finish_reason": "length",
+                        "logprobs": {"content": items},
+                    }
                 ],
-                "usage": {"prompt_tokens": len(body["prompt"]), "completion_tokens": 1},
+                "usage": {"prompt_tokens": len(body["prompt"]), "completion_tokens": n},
             },
         )
 

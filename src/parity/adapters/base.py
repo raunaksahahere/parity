@@ -45,3 +45,15 @@ class Adapter(ABC):
         sampling: dict[str, Any],
     ) -> Completion:
         """Generate one token after ``prefix_ids`` under explicit sampling parameters."""
+
+    async def generate(
+        self,
+        client: EndpointClient,
+        model: str,
+        prefix_ids: list[int],
+        *,
+        n_tokens: int,
+        sampling: dict[str, Any],
+    ) -> Completion:
+        """Generate up to ``n_tokens`` tokens; ``positions[i].token_id`` is the i-th token id."""
+        raise NotImplementedError(f"{self.name} adapter cannot generate from token-id prompts")

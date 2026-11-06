@@ -57,6 +57,32 @@ class LlamaCppAdapter(Adapter):
             positions=parse_logprobs(choice.get("logprobs") or {}),
         )
 
+    async def generate(
+        self,
+        client: EndpointClient,
+        model: str,
+        prefix_ids: list[int],
+        *,
+        n_tokens: int,
+        sampling: dict[str, Any],
+    ) -> Completion:
+        data = await client.completions(
+            model,
+            prefix_ids,
+            max_tokens=n_tokens,
+            logprobs=1,
+            **{**NEUTRAL_SAMPLING, **sampling},
+        )
+        choice = data["choices"][0]
+        usage = data.get("usage") or {}
+        return Completion(
+            text=choice.get("text", ""),
+            finish_reason=choice.get("finish_reason"),
+            prompt_tokens=usage.get("prompt_tokens"),
+            completion_tokens=usage.get("completion_tokens"),
+            positions=parse_logprobs(choice.get("logprobs") or {}),
+        )
+
     async def teacher_force(
         self, client: EndpointClient, model: str, ids: list[int], *, top_k: int
     ) -> list[PositionLogprobs]:

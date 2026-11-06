@@ -29,6 +29,33 @@ class VLLMAdapter(Adapter):
         choice = data["choices"][0]
         return parse_vllm_prompt_logprobs(choice.get("prompt_logprobs") or [], ids)
 
+    async def generate(
+        self,
+        client: EndpointClient,
+        model: str,
+        prefix_ids: list[int],
+        *,
+        n_tokens: int,
+        sampling: dict[str, Any],
+    ) -> Completion:
+        data = await client.completions(
+            model, prefix_ids, max_tokens=n_tokens, logprobs=1, return_token_ids=True, **sampling
+        )
+        choice = data["choices"][0]
+        usage = data.get("usage") or {}
+        positions = parse_logprobs(choice.get("logprobs") or {})
+        ids = choice.get("token_ids")
+        if ids and len(ids) == len(positions):
+            for pos, tid in zip(positions, ids, strict=True):
+                pos.token_id = int(tid)
+        return Completion(
+            text=choice.get("text", ""),
+            finish_reason=choice.get("finish_reason"),
+            prompt_tokens=usage.get("prompt_tokens"),
+            completion_tokens=usage.get("completion_tokens"),
+            positions=positions,
+        )
+
     async def next_token(
         self,
         client: EndpointClient,
