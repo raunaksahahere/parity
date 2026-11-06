@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from parity import Reference, Suite, Target
@@ -91,3 +92,30 @@ async def test_history_command_lists_runs_and_trends(toy_kit: TokenizerKit, tmp_
     )
     assert trend.exit_code == 0 and trend.stdout.strip().endswith("0")
     assert runner.invoke(app, ["history", "--db", str(tmp_path / "none.duckdb")]).exit_code == 2
+
+
+def test_canary_runs_once_records_history_and_reports(
+    toy_kit: TokenizerKit, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import parity.cli as cli
+    import parity.exporter as exporter
+
+    ep = FakeEndpoint(toy_kit, extra_prompt_tokens=1, seed=3)
+    monkeypatch.setattr(
+        cli, "_build_reference", lambda *a, **k: Reference(toy_kit, SuiteReference(toy_kit), INFO)
+    )
+    monkeypatch.setattr(
+        cli, "Target", lambda url, model, *a, **k: Target(url, model, transport=ep.transport())
+    )
+    served: dict[str, object] = {}
+    monkeypatch.setattr(exporter, "serve", lambda state, port: served.setdefault("state", state))
+    res = runner.invoke(
+        app,
+        ["canary", "--model", "x", "--target", "http://h", "--suite", "quick", "--max-runs", "1",
+         "--interval", "0", "--out", str(tmp_path)],
+    )  # fmt: skip
+    assert res.exit_code == 0, res.output
+    assert "canary: DEVIATION" in res.output
+    state = served["state"]
+    assert "parity_verdict" in state.text()  # type: ignore[attr-defined]
+    assert (tmp_path / "history.duckdb").exists()
