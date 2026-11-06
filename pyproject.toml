@@ -56,6 +56,23 @@ dev = [
   "mypy>=1.10",
 ]
 
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/parity",
+  "tests",
+  "docs",
+  "scripts",
+  "faults",
+  "README.md",
+  "LICENSE",
+  "CHANGELOG.md",
+  "CONTRIBUTING.md",
+  "pyproject.toml",
+  "uv.lock",
+  "action.yml",
+  "Dockerfile",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/parity"]
 
