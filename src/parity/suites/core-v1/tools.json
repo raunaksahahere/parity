@@ -1,0 +1,58 @@
+{
+  "version": "core-v1",
+  "tools": [
+    {"type": "function", "function": {"name": "get_weather", "description": "Get the current weather for a city.",
+      "parameters": {"type": "object", "properties": {"city": {"type": "string"}, "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}}, "required": ["city"]}}},
+    {"type": "function", "function": {"name": "get_stock_price", "description": "Get the latest stock price for a ticker symbol.",
+      "parameters": {"type": "object", "properties": {"symbol": {"type": "string"}}, "required": ["symbol"]}}},
+    {"type": "function", "function": {"name": "add_numbers", "description": "Add two numbers exactly.",
+      "parameters": {"type": "object", "properties": {"a": {"type": "number"}, "b": {"type": "number"}}, "required": ["a", "b"]}}},
+    {"type": "function", "function": {"name": "set_timer", "description": "Set a countdown timer.",
+      "parameters": {"type": "object", "properties": {"minutes": {"type": "integer"}}, "required": ["minutes"]}}}
+  ],
+  "trigger_prompts": [
+    "What's the weather like in Tokyo right now?",
+    "Is it cold in Reykjavik today? Please check.",
+    "Tell me the current temperature in Nairobi in celsius.",
+    "What is the latest price of the stock AAPL?",
+    "How much is MSFT trading at right now?",
+    "Look up the current share price for TSLA.",
+    "Use the calculator to add 1234.5 and 876.25.",
+    "Please add 17 and 25 for me with the tool.",
+    "Set a timer for 12 minutes.",
+    "Start a 45 minute countdown timer.",
+    "Check the weather in Lima, in fahrenheit.",
+    "What does NVDA cost at the moment?"
+  ],
+  "plain_prompts": [
+    "Write a haiku about autumn rain.",
+    "What is the capital of Australia?",
+    "Explain what a prime number is in one sentence.",
+    "Give me a synonym for the word happy.",
+    "Translate good morning into Spanish.",
+    "Name three primary colors.",
+    "What is the boiling point of water at sea level in Celsius, from memory?",
+    "Write one sentence about the moon.",
+    "Who wrote the novel Pride and Prejudice?",
+    "Summarize the plot of Cinderella in one sentence.",
+    "What is 2 plus 2, answer from memory?",
+    "Suggest a name for a pet goldfish."
+  ],
+  "json_schema": {
+    "type": "object",
+    "properties": {"name": {"type": "string"}, "age": {"type": "integer"}, "city": {"type": "string"}},
+    "required": ["name", "age", "city"],
+    "additionalProperties": false
+  },
+  "json_instruction": "Extract the person from the text and respond with a JSON object with keys name (string), age (integer) and city (string) and nothing else.\n\nText: ",
+  "json_texts": [
+    "Maria Lopez is 34 years old and lives in Madrid.",
+    "Our new colleague, Chen Wei, 29, just moved to Singapore.",
+    "Amara Okafor (41) runs a bakery in Lagos.",
+    "Located in Oslo, Henrik Solberg turned 57 last week.",
+    "Priya Raman, aged 23, studies in Chennai.",
+    "The pilot, Tomas Novak, 48, is based in Prague.",
+    "Yuki Tanaka is a 31 year old chef from Kyoto.",
+    "Sam O'Brien, 52, retired to Galway."
+  ]
+}

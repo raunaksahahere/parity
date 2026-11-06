@@ -58,7 +58,8 @@ async def main(names: list[str]) -> None:
         }
         print(
             f"{name:12s} hazard {events / trials:.4f} ({events}/{trials}) "
-            f"diverged prompts {events}/{len(prompts)} positions {sorted(d for d in divs if d is not None)}",
+            f"diverged prompts {events}/{len(prompts)} "
+            f"positions {sorted(d for d in divs if d is not None)}",
             flush=True,
         )
     Path("runs/live-greedy.json").write_text(json.dumps(out, indent=1))
