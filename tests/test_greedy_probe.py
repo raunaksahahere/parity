@@ -31,13 +31,13 @@ def test_first_divergence() -> None:
 
 
 async def test_identical_model_is_accepted(toy_kit: TokenizerKit) -> None:
-    res = await run(toy_kit, FakeLM(), thresholds={"greedy_hazard": 0.004})
+    res = await run(toy_kit, FakeLM(), thresholds={"greedy_hazard": 0.005})
     assert res.status is Status.PASS
     assert res.metrics["divergences"] == 0
 
 
 async def test_different_model_is_a_deviation_and_stops_quickly(toy_kit: TokenizerKit) -> None:
-    res = await run(toy_kit, FakeLM(noise=2.0), thresholds={"greedy_hazard": 0.004})
+    res = await run(toy_kit, FakeLM(noise=2.0), thresholds={"greedy_hazard": 0.005})
     assert res.status is Status.DEVIATION
     assert res.metrics["hazard"] > 0.1
     assert res.n_requests < 25  # decided before using the whole prompt set

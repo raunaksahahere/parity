@@ -76,3 +76,19 @@ temperature first.
   deliberately lenient; calibrated thresholds sit just above benign variation.
 - Threshold calibration uses benign deployment variants (backend, slots, concurrency), not
   same-configuration repeats (zero on GPU): threshold = max(benign upper bounds) x factor.
+
+## D9. Greedy agreement is a divergence-hazard SPRT
+Each compared position is a Bernoulli trial for "first divergence here" (a prompt stops
+contributing at its first divergence). Measured per-token hazards vs the HF reference
+(docs/data/greedy-live.json): BF16 GPU 0.0008, BF16 CPU 0.0047, Q8_0 0.028, Q4_K_M 0.169,
+Q2_K 0.676. Defaults h0=0.005, h1=0.025 until calibrated. The SPRT reports
+p = min(1, exp(-LLR)), a valid sequential p-value (the likelihood ratio is a nonnegative
+martingale under H0), so Holm-Bonferroni can span all probes including the sequential ones.
+
+## D10. Long-context and tool probes lean on deterministic evidence
+Long-context: token accounting (usage.prompt_tokens vs the locally rendered prompt) and
+rejection inside the claimed window are hard evidence; needle retrieval alone never yields
+DEVIATION for a 0.6B model (it yields INCONCLUSIVE). Tools: paired comparison with the
+reference on identical greedy prompts (exact binomial tests); the probe reports its own
+minimum detectable disagreement because 24 trigger prompts give limited power. Tool parsing
+of the reference supports Hermes/Qwen `<tool_call>` markup only in v0.1.

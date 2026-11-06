@@ -70,6 +70,10 @@ class ProbeContext:
     budget: int | None = None
     options: dict[str, Any] = field(default_factory=dict)
 
+    def can_afford(self, n_more: int) -> bool:
+        """False if sending ``n_more`` further requests would exceed the request budget."""
+        return self.budget is None or self.client.requests_sent + n_more <= self.budget
+
 
 class Probe(ABC):
     id: str

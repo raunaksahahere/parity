@@ -97,3 +97,19 @@ def test_delta_is_nan_when_forced_token_not_reported() -> None:
     )
     kl, delta, top1, _ = position_stats(ref, [pos])
     assert np.isnan(delta[0]) and kl[0] == 0.0 and top1[0] == 1.0
+
+
+async def test_tiny_budget_gives_inconclusive_not_pass(toy_kit: TokenizerKit) -> None:
+    ref = FakeReference(FakeLM())
+    async with EndpointClient("http://x", transport=lm_server(FakeLM())) as c:
+        ctx = ProbeContext(
+            client=c,
+            adapter=get_adapter("llamacpp"),
+            model="m",
+            kit=toy_kit,
+            reference=ref,
+            budget=5,
+            options={"thresholds": {"kl_mean": 1e-3}},
+        )
+        res = await DistributionProbe().run(ctx)
+    assert res.status is Status.INCONCLUSIVE and c.requests_sent <= 5

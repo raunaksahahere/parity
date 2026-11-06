@@ -215,11 +215,17 @@ class SamplerProbe(Probe):
 
         # 3. sequential sampling
         drawn = 0
+        budget_hit = False
         for look_i, target_n in enumerate(looks):
             active = [c for c in cases if not c.done]
             if not active:
                 break
             batch = target_n - drawn
+            n_jobs = sum(len(c.per_prompt) for c in active) * batch
+            if not ctx.can_afford(n_jobs):
+                budget_hit = True
+                notes.append(f"request budget reached before look {look_i + 1}/{len(looks)}")
+                break
             jobs = [
                 (
                     case,
@@ -288,6 +294,8 @@ class SamplerProbe(Probe):
                     "truncation, so an ignored parameter would be hard to see here"
                 )
         status = Status.DEVIATION if findings else Status.PASS
+        if budget_hit and not findings:
+            status = Status.INCONCLUSIVE
         if not findings:
             findings.append(
                 Finding(

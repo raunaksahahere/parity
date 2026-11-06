@@ -99,9 +99,19 @@ class DistributionProbe(Probe):
         findings: list[Finding] = []
         status = Status.INCONCLUSIVE
         res = None
+        notes = ["KL is a lower bound from truncated top-k lists; true divergence may be larger"]
 
         for look in range(n_looks):
             batch = docs[look * chunk : (look + 1) * chunk]
+            if not ctx.can_afford(sum(len(ids) - 1 for ids in batch)):
+                if res is None:
+                    return self.result(
+                        Status.INCONCLUSIVE,
+                        n_requests=n_requests,
+                        notes=["request budget too small for even one chunk of documents"],
+                    )
+                notes.append("request budget reached; decision made on fewer documents")
+                break
             try:
                 outs = await asyncio.gather(
                     *(

@@ -15,14 +15,15 @@ This uses the full divergence-position distribution rather than only "identical 
 from __future__ import annotations
 
 import asyncio
+import math
 
 from parity.client import EndpointError
 from parity.probes.base import Finding, Probe, ProbeContext, ProbeResult, Status
 from parity.stats.sprt import BinomialSPRT, Decision
 from parity.suites import load_corpus
 
-DEFAULT_H0 = 0.004  # per-token benign divergence hazard; replaced by calibration
-DEFAULT_H1 = 0.02
+DEFAULT_H0 = 0.005  # per-token benign divergence hazard; replaced by calibration
+DEFAULT_H1 = 0.025
 
 
 def first_divergence(a: list[int], b: list[int]) -> int | None:
@@ -68,6 +69,8 @@ class GreedyProbe(Probe):
         chunk = int(opts.get("greedy_chunk", 4))
         for start in range(0, len(prompts), chunk):
             batch = prompts[start : start + chunk]
+            if not ctx.can_afford(len(batch)):
+                break
             try:
                 comps = await asyncio.gather(
                     *(
@@ -139,6 +142,7 @@ class GreedyProbe(Probe):
         sev = {"PASS": "info", "DEVIATION": "deviation", "INCONCLUSIVE": "warn"}[status.value]
         return self.result(
             status,
+            p_value=min(1.0, math.exp(-sprt.llr)),
             effect=hazard,
             effect_unit="per-token divergence hazard",
             threshold=h0,
@@ -146,7 +150,7 @@ class GreedyProbe(Probe):
             metrics=metrics,
             findings=[Finding(severity=sev, message=msg)],
             notes=[
-                "SPRT p-values are not defined; the verdict comes from the Wald boundaries "
-                f"(alpha={ctx.alpha}, beta={sprt.beta})"
+                "p-value is exp(-LLR), a valid sequential p-value (Ville's inequality); "
+                f"the verdict uses Wald boundaries (alpha={ctx.alpha}, beta={sprt.beta})"
             ],
         )
