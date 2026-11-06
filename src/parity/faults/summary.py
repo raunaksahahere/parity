@@ -8,13 +8,14 @@ from typing import Any
 
 from scipy import stats
 
+# suite execution order (cheapest first); fail_fast_requests depends on it
 PROBES = [
     "template.token_counts",
-    "distribution.teacher_forced",
-    "greedy.agreement",
-    "sampler.conformance",
     "longctx.needle",
     "tools.structured",
+    "greedy.agreement",
+    "distribution.teacher_forced",
+    "sampler.conformance",
 ]
 SHORT = {
     "template.token_counts": "template",
@@ -40,8 +41,9 @@ def _pct(k: int, n: int) -> str:
 
 
 def fail_fast_requests(row: dict[str, Any]) -> int:
-    """Requests a ``--fail-fast`` run would have used: probes run in suite order and are
-    independent, so this is the cumulative count through the first deviating probe."""
+    """Requests a ``--fail-fast`` run would have used: the cumulative per-probe count, in suite
+    order, through the first deviating probe. Derived from full runs, which is valid because
+    probes do not influence each other."""
     total = 0
     for p in PROBES:
         total += int(row.get("probe_requests", {}).get(p, 0))

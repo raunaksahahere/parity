@@ -30,12 +30,13 @@ from parity.verdict import EXIT_CODES, decide, summarize
 PROBE_CLASSES: dict[str, type[Probe]] = {
     c.id: c
     for c in (
+        # cheapest first, so --fail-fast reaches a verdict with as few requests as possible
         TemplateProbe,
-        DistributionProbe,
-        GreedyProbe,
-        SamplerProbe,
         LongContextProbe,
         ToolsProbe,
+        GreedyProbe,
+        DistributionProbe,
+        SamplerProbe,
     )
 }
 STATISTICAL_PROBES = frozenset(

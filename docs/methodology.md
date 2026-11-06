@@ -203,8 +203,8 @@ partial evidence. Requests per verdict for each scenario are reported in
 `--fail-fast` stops the suite after the first probe that returns DEVIATION; later probes are
 recorded as SKIPPED ("not run"). This cannot weaken a deviation: each statistical probe runs
 at α/m, so its DEVIATION survives the Holm step whatever the other probes would have returned,
-and hard evidence is exempt from correction. Probes run in a fixed order (template,
-distribution, greedy, sampler, long-context, tools), and since they do not influence each
+and hard evidence is exempt from correction. Probes run cheapest first (template,
+long-context, tools, greedy, distribution, sampler), and since they do not influence each
 other, the validation study reports the requests a fail-fast run *would* have used, computed
 from the full runs.
 
