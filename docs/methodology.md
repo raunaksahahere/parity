@@ -134,7 +134,9 @@ increasing length (512, 2048, ... up to the claimed window minus headroom for th
 
 1. **Token accounting (hard evidence).** The rendered prompt has an exactly known token count.
    Fewer `usage.prompt_tokens` than expected, or a rejection inside the claimed window, means
-   silent truncation or a wrong claimed window.
+   silent truncation or a wrong claimed window. The same difference at *every* length
+   (including the shortest) is instead reported as a chat-template or tokenization difference;
+   it is still a deviation, but not truncation.
 2. **Retrieval (behavioural).** A start needle lost while the end needle survives, at a length
    where the start needle was earlier found, suggests left-truncation that accounting missed.
    Retrieval alone *never* yields DEVIATION (a 0.6B model can simply fail to retrieve); it
@@ -197,6 +199,14 @@ a way the calibration did not see (different kernels, other hardware) may land a
 probe that cannot reach a decision within the budget returns INCONCLUSIVE rather than passing on
 partial evidence. Requests per verdict for each scenario are reported in
 [validation.md](validation.md).
+
+`--fail-fast` stops the suite after the first probe that returns DEVIATION; later probes are
+recorded as SKIPPED ("not run"). This cannot weaken a deviation: each statistical probe runs
+at α/m, so its DEVIATION survives the Holm step whatever the other probes would have returned,
+and hard evidence is exempt from correction. Probes run in a fixed order (template,
+distribution, greedy, sampler, long-context, tools), and since they do not influence each
+other, the validation study reports the requests a fail-fast run *would* have used, computed
+from the full runs.
 
 ## 6. Capability fallbacks and where alignment is impossible
 
