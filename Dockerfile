@@ -11,8 +11,11 @@ WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 
+# torch comes from the PyTorch CPU index in its own step: with --extra-index-url uv would take
+# every package that index also carries (e.g. an old `packaging`) from there and fail.
 RUN if [ "$WITH_REFERENCE" = "1" ]; then \
-      uv pip install --system --extra-index-url https://download.pytorch.org/whl/cpu ".[reference]"; \
+      uv pip install --system --index-url https://download.pytorch.org/whl/cpu "torch>=2.4" && \
+      uv pip install --system ".[reference]"; \
     else \
       uv pip install --system .; \
     fi

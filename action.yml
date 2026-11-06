@@ -83,9 +83,10 @@ runs:
       shell: bash
       run: |
         uv venv "$RUNNER_TEMP/parity-venv"
-        uv pip install --python "$RUNNER_TEMP/parity-venv/bin/python" \
-          --extra-index-url https://download.pytorch.org/whl/cpu \
-          "${GITHUB_ACTION_PATH}[reference]"
+        py="$RUNNER_TEMP/parity-venv/bin/python"
+        # torch from the PyTorch CPU index on its own; everything else from PyPI
+        uv pip install --python "$py" --index-url https://download.pytorch.org/whl/cpu "torch>=2.4"
+        uv pip install --python "$py" "${GITHUB_ACTION_PATH}[reference]"
 
     - name: Run parity
       id: run
