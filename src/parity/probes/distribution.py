@@ -81,6 +81,8 @@ class DistributionProbe(Probe):
         top_k = min(int(opts.get("distribution_top_k", 100)), caps.max_top_k)
         max_tokens = int(opts.get("distribution_max_tokens", 64))
         chunk = int(opts.get("distribution_chunk", 5))
+        if opts.get("calibrating"):
+            chunk = 10**6  # one look over the whole corpus: no early stopping
         threshold = float(opts.get("thresholds", {}).get("kl_mean", DEFAULT_KL_THRESHOLD))
 
         docs = [

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -101,6 +102,7 @@ class Suite:
         out_dir: Path | None = None,
         run_id: str | None = None,
         resume: bool = False,
+        on_probe: Callable[[ProbeResult], None] | None = None,
     ) -> RunReport:
         started = datetime.now(UTC)
         t0 = time.monotonic()
@@ -143,6 +145,8 @@ class Suite:
                 saved = run_dir / "probes" / f"{pid}.json" if run_dir else None
                 if resume and saved is not None and saved.exists():
                     results.append(ProbeResult.model_validate_json(saved.read_text()))
+                    if on_probe is not None:
+                        on_probe(results[-1])
                     continue
                 before = client.requests_sent
                 try:
@@ -162,6 +166,8 @@ class Suite:
                         ],
                     )
                 results.append(result)
+                if on_probe is not None:
+                    on_probe(result)
                 if saved is not None:
                     saved.write_text(result.model_dump_json(indent=1))
 

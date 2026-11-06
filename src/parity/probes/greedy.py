@@ -67,6 +67,7 @@ class GreedyProbe(Probe):
         n_prompts = 0
         decision = Decision.CONTINUE
         chunk = int(opts.get("greedy_chunk", 4))
+        calibrating = bool(opts.get("calibrating"))
         for start in range(0, len(prompts), chunk):
             batch = prompts[start : start + chunk]
             if not ctx.can_afford(len(batch)):
@@ -108,13 +109,13 @@ class GreedyProbe(Probe):
                     trials += 1
                     events += diverged
                     decision = sprt.update(diverged)
-                    if decision is not Decision.CONTINUE:
+                    if decision is not Decision.CONTINUE and not calibrating:
                         break
                 if d is not None:
                     div_positions.append(d)
-                if decision is not Decision.CONTINUE:
+                if decision is not Decision.CONTINUE and not calibrating:
                     break
-            if decision is not Decision.CONTINUE:
+            if decision is not Decision.CONTINUE and not calibrating:
                 break
 
         hazard = events / trials if trials else float("nan")
@@ -150,7 +151,8 @@ class GreedyProbe(Probe):
             metrics=metrics,
             findings=[Finding(severity=sev, message=msg)],
             notes=[
-                "p-value is exp(-LLR), a valid sequential p-value (Ville's inequality); "
-                f"the verdict uses Wald boundaries (alpha={ctx.alpha}, beta={sprt.beta})"
+                "p-value is exp(-LLR), a valid sequential p-value (Ville's inequality); the "
+                f"test stops for H1 at p <= {ctx.alpha:.3g} and for H0 at the Wald boundary "
+                f"(beta={sprt.beta})"
             ],
         )

@@ -20,8 +20,9 @@ Non-obvious choices, recorded as they are made.
 
 ## D3. llama.cpp must be launched from its own directory
 Launching the prebuilt Vulkan `llama-server` from another working directory
-loaded no GPU backend and silently ran on CPU (observed: 654 MB RSS, 6 threads,
-15 MiB VRAM used). `parity.local.llamacpp` launches with the binary's directory
+loaded no GPU backend and silently ran on CPU (observed: 654 MB RSS, 6 threads, no Vulkan
+lines in the log). Note: the sysfs `mem_info_vram_used` counter is NOT a reliable indicator
+here (it reads ~16 MiB even with the model on the GPU); the server log line is. `parity.local.llamacpp` launches with the binary's directory
 as cwd and asserts "offloaded N/M layers to GPU" from the log, failing loudly
 otherwise. Pinned build: llama.cpp b12128. GPU for study runs: `Vulkan1`
 (RX 6500M); `Vulkan0` is the integrated Vega and is never used.

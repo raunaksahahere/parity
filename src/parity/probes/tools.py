@@ -185,6 +185,7 @@ class ToolsProbe(Probe):
             metrics.update(
                 trigger_f1=f1,
                 trigger_disagreements=float(disagree),
+                trigger_prompts=float(n),
                 reference_trigger_rate=sum(ref_trigger) / n,
                 min_detectable_disagreements=float(min_detectable(n, d0, ctx.alpha / 2)),
             )

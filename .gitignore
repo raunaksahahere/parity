@@ -16,3 +16,4 @@ bin/
 runs_baseline.log
 runs_dist.log
 runs_greedy.log
+runs_cli.log

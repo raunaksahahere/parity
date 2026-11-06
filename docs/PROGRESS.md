@@ -7,7 +7,7 @@
 - [x] 5. Teacher-forced log-prob comparison, KL, adapters
 - [x] 6. Calibration, SPRT, Holm-Bonferroni, bootstrap
 - [x] 7. Greedy agreement, long-context, tool/JSON probes
-- [ ] 8. Verdict logic, DuckDB history, reports, CLI polish
+- [x] 8. Verdict logic, DuckDB history, reports, CLI polish
 - [ ] 9. Fault-injection harness and validation study
 - [ ] 10. GitHub Action, Dockerfile, Prometheus, packaging
 - [ ] 11. Documentation

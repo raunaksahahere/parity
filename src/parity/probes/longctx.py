@@ -82,11 +82,13 @@ class LongContextProbe(Probe):
         opts = ctx.options
         claimed = int(opts.get("claimed_context", 4096))
         template_kwargs = dict(opts.get("template_kwargs", {"enable_thinking": False}))
+        headroom = int(opts.get("longctx_headroom", 64))  # room for the reply and template slack
+        limit = claimed - headroom
         lengths = [
-            n for n in opts.get("longctx_lengths", [512, 2048, 4096, 8192, 16384]) if n <= claimed
+            n for n in opts.get("longctx_lengths", [512, 2048, 4096, 8192, 16384]) if n <= limit
         ]
-        if claimed not in lengths and claimed > max(lengths, default=0):
-            lengths.append(claimed - 64)  # test close to the advertised limit
+        if limit > max(lengths, default=0):
+            lengths.append(limit)  # always test close to the advertised limit
         findings: list[Finding] = []
         n_requests = 0
         hard: list[str] = []

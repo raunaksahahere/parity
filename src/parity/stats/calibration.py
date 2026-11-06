@@ -13,6 +13,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import BaseModel, Field
+from scipy import stats
+
+from parity.probes.base import ProbeResult
 
 
 class MetricCalibration(BaseModel):
@@ -59,3 +62,31 @@ def calibrate_threshold(
         threshold=max(worst * safety_factor, floor),
         method=f"max(benign upper bounds) x {safety_factor:g}, floor {floor:g}",
     )
+
+
+FLOORS = {"kl_mean": 1e-5, "greedy_hazard": 0.002, "tool_disagreement": 0.05}
+
+
+def wilson_upper(events: float, trials: float, confidence: float = 0.95) -> float:
+    """Upper Wilson score bound for a binomial proportion."""
+    if trials <= 0:
+        return 1.0
+    z = float(stats.norm.ppf(1 - (1 - confidence) / 2))
+    p = events / trials
+    denom = 1 + z**2 / trials
+    centre = p + z**2 / (2 * trials)
+    margin = z * ((p * (1 - p) + z**2 / (4 * trials)) / trials) ** 0.5
+    return float(min(1.0, (centre + margin) / denom))
+
+
+def benign_values(result: ProbeResult) -> dict[str, float]:
+    """Conservative (upper-bound) benign value of each calibratable metric in one result."""
+    m = {k: v for k, v in result.metrics.items() if v is not None}
+    out: dict[str, float] = {}
+    if result.probe == "distribution.teacher_forced" and "kl_ci_hi" in m:
+        out["kl_mean"] = m["kl_ci_hi"]
+    elif result.probe == "greedy.agreement" and "trials" in m:
+        out["greedy_hazard"] = wilson_upper(m["divergences"], m["trials"])
+    elif result.probe == "tools.structured" and "trigger_disagreements" in m:
+        out["tool_disagreement"] = wilson_upper(m["trigger_disagreements"], m["trigger_prompts"])
+    return out
