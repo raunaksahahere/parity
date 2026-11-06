@@ -134,3 +134,28 @@ class HFReference:
 
         key = stable_hash("greedy", list(prefix_ids), n_tokens)
         return [int(t) for t in self.cache.get_or_compute(key, compute)["ids"]]
+
+
+def build_hf_reference(
+    model: str,
+    *,
+    revision: str | None = None,
+    dtype: str = "float32",
+    cache_dir: Path = Path(".parity-cache"),
+) -> HFReference:
+    """Resolve ``model`` (a local directory or a Hugging Face id) to a pinned reference.
+
+    For hub ids the weights are downloaded at ``revision`` (the resolved commit hash is
+    recorded so the reference cache is keyed by it). A local directory needs an explicit
+    ``revision`` label, since there is no hub commit to read.
+    """
+    path = Path(model)
+    if path.is_dir():
+        return HFReference(path, revision=revision or "local", dtype=dtype, cache_dir=cache_dir)
+    from huggingface_hub import HfApi, snapshot_download
+
+    sha = revision or HfApi().model_info(model).sha
+    if sha is None:
+        raise ReferenceUnavailableError(f"could not resolve a revision for {model}")
+    local = snapshot_download(model, revision=sha)
+    return HFReference(local, revision=sha, dtype=dtype, cache_dir=cache_dir)

@@ -14,6 +14,7 @@ import time
 from collections.abc import Callable
 from types import TracebackType
 from typing import Any, Self
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -84,14 +85,17 @@ class EndpointClient:
         timeout_s: float = 300.0,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
+        parts = urlsplit(base_url)
+        path = parts.path.rstrip("/") or "/v1"  # bare host:port means the usual /v1 API root
+        self._origin = f"{parts.scheme}://{parts.netloc}"
+        self.base_url = f"{self._origin}{path}"
         self._api_key_env = api_key_env
         self._sem = asyncio.Semaphore(max_concurrency)
         self._bucket = TokenBucket(rate_per_s) if rate_per_s else None
         self._max_retries = max_retries
         self.requests_sent = 0
         self._client = httpx.AsyncClient(
-            base_url=self.base_url, timeout=timeout_s, transport=transport
+            base_url=self.base_url + "/", timeout=timeout_s, transport=transport
         )
 
     def __repr__(self) -> str:
@@ -131,7 +135,8 @@ class EndpointClient:
         raise EndpointError(f"retries exhausted: {last_error}")
 
     async def get_json(self, path: str) -> dict[str, Any]:
-        resp = await self._client.get(path, headers=self._headers())
+        """GET a server-root path such as ``/props`` (resolved against the origin, not /v1)."""
+        resp = await self._client.get(self._origin + path, headers=self._headers())
         if resp.status_code >= 400:
             raise EndpointError(
                 f"HTTP {resp.status_code}: {resp.text[:300]}", status=resp.status_code
@@ -145,13 +150,13 @@ class EndpointClient:
         self, model: str, messages: list[dict[str, Any]], **params: Any
     ) -> dict[str, Any]:
         return await self.post_json(
-            "/v1/chat/completions", {"model": model, "messages": messages, **params}
+            "chat/completions", {"model": model, "messages": messages, **params}
         )
 
     async def completions(
         self, model: str, prompt: str | list[int], **params: Any
     ) -> dict[str, Any]:
-        return await self.post_json("/v1/completions", {"model": model, "prompt": prompt, **params})
+        return await self.post_json("completions", {"model": model, "prompt": prompt, **params})
 
     async def aclose(self) -> None:
         await self._client.aclose()

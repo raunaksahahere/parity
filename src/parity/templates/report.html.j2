@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parity report: {{ r.target.model }}</title>
+<style>
+:root{--bg:#fff;--fg:#1b1f24;--muted:#5b6670;--line:#d8dee4;--card:#f6f8fa;--pass:#1a7f37;--dev:#cf222e;--inc:#9a6700;--skip:#6e7781}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8b949e;--line:#30363d;--card:#161b22;--pass:#3fb950;--dev:#f85149;--inc:#d29922;--skip:#8b949e}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:1.5rem;margin:0 0 4px}h2{font-size:1.15rem;margin:32px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.banner{border-radius:8px;padding:16px;margin:16px 0;color:#fff}.PASS{background:var(--pass)}.DEVIATION{background:var(--dev)}.INCONCLUSIVE{background:var(--inc)}
+.banner b{font-size:1.3rem}
+table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.chip{display:inline-block;padding:1px 8px;border-radius:10px;color:#fff;font-size:.78rem;font-weight:600}
+.chip.PASS{background:var(--pass)}.chip.DEVIATION{background:var(--dev)}.chip.INCONCLUSIVE{background:var(--inc)}.chip.SKIPPED{background:var(--skip)}
+.muted{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px}
+ul{margin:4px 0 4px 20px;padding:0}code{font-size:.85em}.tablewrap{overflow-x:auto}
+details{margin:4px 0}svg{max-width:100%;height:auto}
+</style>
+</head>
+<body><main>
+<h1>Parity conformance report</h1>
+<div class="muted">{{ r.target.model }} at {{ r.target.base_url }} · run {{ r.run_id }} · parity {{ r.parity_version }}</div>
+<div class="banner {{ r.verdict.value }}"><b>{{ r.verdict.value }}</b><br>{{ r.summary }}</div>
+
+<h2>Setup</h2>
+<div class="tablewrap"><table>
+<tr><th>Target</th><td>{{ r.target.base_url }} (model <code>{{ r.target.model }}</code>, adapter <code>{{ r.target.adapter }}</code>)</td></tr>
+<tr><th>Reference</th><td>{{ r.reference.kind }} · <code>{{ r.reference.model_id }}</code> @ <code>{{ r.reference.revision }}</code>{% if r.reference.dtype %} · {{ r.reference.dtype }}{% endif %}</td></tr>
+<tr><th>Suite</th><td>{{ r.suite }}, alpha {{ r.alpha }}, {{ r.requests_total }} requests{% if r.budget %} (budget {{ r.budget }}){% endif %}, {{ r.duration_s }} s</td></tr>
+<tr><th>Calibration</th><td>{% if r.calibration %}{{ r.calibration.created }}: {% for k, v in r.calibration.thresholds.items() %}{{ k }}={{ "%.3g"|format(v) }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}none (uncalibrated defaults){% endif %}</td></tr>
+{% if r.lower_power %}<tr><th>Power</th><td>Lower: some core probes could not run on this endpoint.</td></tr>{% endif %}
+</table></div>
+
+<h2>Probes</h2>
+<div class="tablewrap"><table>
+<tr><th>Probe</th><th>Verdict</th><th>Effect</th><th>Threshold</th><th>p / Holm p</th><th>Requests</th></tr>
+{% for o in r.probes %}{% set p = o.result %}
+<tr><td><code>{{ p.probe }}</code></td>
+<td><span class="chip {{ o.final_status.value }}">{{ o.final_status.value }}</span>{% if o.final_status != p.status %} <span class="muted">(was {{ p.status.value }})</span>{% endif %}</td>
+<td>{% if p.effect is not none %}{{ "%.4g"|format(p.effect) }} <span class="muted">{{ p.effect_unit }}</span>{% else %}n/a{% endif %}{% if p.ci %}<br><span class="muted">CI {{ "%.3g"|format(p.ci[0]) }} to {{ "%.3g"|format(p.ci[1]) }}</span>{% endif %}</td>
+<td>{% if p.threshold is not none %}{{ "%.3g"|format(p.threshold) }}{% else %}n/a{% endif %}</td>
+<td>{% if p.p_value is not none %}{{ "%.3g"|format(p.p_value) }}{% else %}n/a{% endif %}{% if o.adjusted_p is not none %} / {{ "%.3g"|format(o.adjusted_p) }}{% endif %}{% if p.hard_evidence %}<br><span class="muted">deterministic</span>{% endif %}</td>
+<td>{{ p.n_requests }}{% if p.power == "lower" %}<br><span class="muted">lower power</span>{% endif %}</td></tr>
+<tr><td colspan="6">
+{% if o.reason %}<div class="muted">{{ o.reason }}</div>{% endif %}
+{% if p.findings %}<ul>{% for f in p.findings %}<li><b>{{ f.severity }}</b>: {{ f.message }}</li>{% endfor %}</ul>{% endif %}
+{% if p.notes %}<ul class="muted">{% for n in p.notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
+{% if p.metrics %}<details><summary class="muted">metrics</summary><table>{% for k, v in p.metrics.items() %}<tr><td><code>{{ k }}</code></td><td>{% if v is none %}n/a{% else %}{{ "%.5g"|format(v) }}{% endif %}</td></tr>{% endfor %}</table></details>{% endif %}
+</td></tr>
+{% endfor %}
+</table></div>
+
+<h2>What this does not prove</h2>
+<div class="card"><ul>{% for l in r.limits %}<li>{{ l }}</li>{% endfor %}</ul></div>
+</main></body></html>

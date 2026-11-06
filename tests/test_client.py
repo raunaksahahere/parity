@@ -77,3 +77,18 @@ async def test_token_bucket_throttles() -> None:
 def test_backoff_is_bounded() -> None:
     for attempt in range(12):
         assert 0.0 <= backoff_delay(attempt, base=0.5, cap=20.0) <= 20.0
+
+
+@pytest.mark.parametrize("base", ["http://h:1", "http://h:1/", "http://h:1/v1", "http://h:1/v1/"])
+async def test_base_url_forms_resolve_to_the_same_api_paths(base: str) -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return httpx.Response(200, json={})
+
+    async with EndpointClient(base, transport=httpx.MockTransport(handler)) as c:
+        await c.chat("m", [])
+        await c.completions("m", "x")
+        await c.get_json("/props")
+    assert seen == ["/v1/chat/completions", "/v1/completions", "/props"]

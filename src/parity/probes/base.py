@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from parity.adapters import Adapter
 from parity.client import EndpointClient
@@ -43,9 +44,15 @@ class ProbeResult(BaseModel):
     threshold: float | None = None
     n_requests: int = 0
     power: Literal["normal", "lower"] = "normal"
-    metrics: dict[str, float] = Field(default_factory=dict)
+    metrics: dict[str, float | None] = Field(default_factory=dict)
     findings: list[Finding] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+
+    @field_validator("metrics")
+    @classmethod
+    def _no_non_finite(cls, v: dict[str, float | None]) -> dict[str, float | None]:
+        """JSON has no NaN/inf; a metric that is undefined is stored as null."""
+        return {k: (x if x is not None and math.isfinite(x) else None) for k, x in v.items()}
 
 
 class ReferenceLike(Protocol):

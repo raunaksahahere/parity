@@ -17,8 +17,8 @@ class Decision(StrEnum):
 class BinomialSPRT:
     """Test a Bernoulli rate: H0 ``p = p0`` against H1 ``p = p1`` (``p1 > p0``).
 
-    ``alpha`` bounds P(accept H1 | H0) and ``beta`` bounds P(accept H0 | H1) (Wald bounds,
-    approximate because the log-likelihood ratio can overshoot a boundary).
+    ``alpha`` bounds P(accept H1 | H0) exactly (Ville); ``beta`` bounds P(accept H0 | H1)
+    approximately (Wald's lower boundary; the log-likelihood ratio can overshoot).
     """
 
     p0: float
@@ -31,7 +31,10 @@ class BinomialSPRT:
     def __post_init__(self) -> None:
         if not 0 < self.p0 < self.p1 < 1:
             raise ValueError("need 0 < p0 < p1 < 1")
-        self.upper = math.log((1 - self.beta) / self.alpha)
+        # Stop for H1 when exp(-LLR) <= alpha. By Ville's inequality the likelihood ratio
+        # crosses 1/alpha with probability <= alpha under H0, and exp(-LLR) is then a valid
+        # sequential p-value (Wald's (1-beta)/alpha would leave p slightly above alpha).
+        self.upper = math.log(1.0 / self.alpha)
         self.lower = math.log(self.beta / (1 - self.alpha))
 
     def update(self, success: bool) -> Decision:
@@ -66,7 +69,10 @@ class GaussianSPRT:
     def __post_init__(self) -> None:
         if not self.mu1 > self.mu0 or self.sigma <= 0:
             raise ValueError("need mu1 > mu0 and sigma > 0")
-        self.upper = math.log((1 - self.beta) / self.alpha)
+        # Stop for H1 when exp(-LLR) <= alpha. By Ville's inequality the likelihood ratio
+        # crosses 1/alpha with probability <= alpha under H0, and exp(-LLR) is then a valid
+        # sequential p-value (Wald's (1-beta)/alpha would leave p slightly above alpha).
+        self.upper = math.log(1.0 / self.alpha)
         self.lower = math.log(self.beta / (1 - self.alpha))
 
     def update(self, x: float) -> Decision:
