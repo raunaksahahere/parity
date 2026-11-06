@@ -101,3 +101,36 @@ def test_expected_is_always_a_valid_distribution_over_the_top_tokens(t: float, k
     assert (exp.probs > 0).all()
     assert len(exp.ids) == (k if k else len(IDS))
     assert np.all(np.diff(exp.probs) <= 1e-12)  # ranked descending
+
+
+def test_top_p_cutoff_margin_measures_distance_to_the_cumulative_mass() -> None:
+    lp = np.log(np.array([0.5, 0.098, 0.2, 0.202]))  # sorted: .5 .202 .2 .098
+    ids = np.arange(4)
+    exp = expected_distribution(ids, lp, SamplerSettings(top_p=0.7))
+    # cumulative: .5, .702 -> keeps 2 tokens; .702 is only .002 above the cutoff
+    assert len(exp.ids) == 2
+    assert exp.cutoff_margin == pytest.approx(0.002, abs=1e-9)
+    safe = expected_distribution(ids, lp, SamplerSettings(top_p=0.6))
+    assert safe.cutoff_margin == pytest.approx(0.1, abs=1e-9)  # .6 vs .5 before / .702 after
+    assert expected_distribution(ids, lp, SamplerSettings(top_k=2)).cutoff_margin == float("inf")
+
+
+def test_min_p_cutoff_margin_is_in_log_space() -> None:
+    p = np.array([0.5, 0.26, 0.24])
+    exp = expected_distribution(np.arange(3), np.log(p), SamplerSettings(min_p=0.5))
+    assert [int(i) for i in exp.ids] == [0, 1]
+    assert exp.cutoff_margin == pytest.approx(min(np.log(0.26 / 0.25), np.log(0.25 / 0.24)))
+
+
+def test_stable_top_p_sits_mid_interval_near_the_nominal_value() -> None:
+    from parity.stats.sampling import stable_top_p
+
+    p = np.array([0.30, 0.20, 0.1005, 0.1, 0.1, 0.0995, 0.1])
+    chosen = stable_top_p(np.log(p), 0.6)
+    assert chosen is not None
+    c = np.cumsum(np.sort(p)[::-1])
+    assert min(np.abs(c - chosen)) >= 0.02  # never close to a cumulative boundary
+    exp = expected_distribution(np.arange(len(p)), np.log(p), SamplerSettings(top_p=chosen))
+    assert exp.cutoff_margin >= 0.02
+    # nothing qualifies when no token is large enough to give a margin
+    assert stable_top_p(np.log(np.full(100, 0.01)), 0.6) is None

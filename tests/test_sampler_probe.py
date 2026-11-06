@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 import pytest
 
 from parity.adapters import get_adapter
@@ -99,3 +100,33 @@ async def test_probability_moving_past_the_reported_topk_at_high_temperature_is_
     res = await run(toy_kit, server)
     assert res.status is Status.PASS, [f.message for f in res.findings]
     assert res.metrics["temp-1.4.violation_rate"] == 0.0
+
+
+async def test_top_p_case_with_a_jittery_cutoff_is_skipped_not_flagged(
+    toy_kit: TokenizerKit,
+) -> None:
+    """Regression from the validation study: on a Q2_K server the cumulative mass sat within a
+    hair of top_p=0.6 and request-to-request numerical jitter produced a 2.4% 'violation'."""
+    spec = load_json("core-v1", "sampler.json")
+    prompts = {}
+    for i, t in enumerate(spec["prompts"]):
+        lp = make_logprobs(i, 1.5)
+        order = np.argsort(-lp)
+        p = np.exp(lp[order])
+        # move mass so that the cumulative sum hits 0.6 almost exactly at the 3rd token
+        target = np.array([0.30, 0.20, 0.1005])
+        rest = p[3:] / p[3:].sum() * (1 - target.sum())
+        newp = np.concatenate([target, rest])
+        lp2 = np.empty_like(lp)
+        lp2[order] = np.log(newp)
+        prompts[tuple(toy_kit.encode(t))] = lp2
+    res = await run(toy_kit, FakeSamplerServer(prompts, seed=21))
+    assert res.status is Status.PASS, [f.message for f in res.findings]
+    chosen = [n for n in res.notes if n.startswith("top-p-0.6") and "uses top_p=" in n]
+    assert chosen, res.notes
+    for note in chosen:  # the placed value keeps clear of the 0.6005 cumulative mass
+        value = float(note.rsplit("=", 1)[1])
+        assert abs(value - 0.6005) >= 0.02
+    # and an ignored top_p is still caught with the per-context placement
+    buggy = await run(toy_kit, FakeSamplerServer(prompts, seed=22, honor_top_p=False))
+    assert any("top_p" in f.message for f in buggy.findings if f.severity == "deviation")

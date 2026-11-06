@@ -93,3 +93,15 @@ DEVIATION for a 0.6B model (it yields INCONCLUSIVE). Tools: paired comparison wi
 reference on identical greedy prompts (exact binomial tests); the probe reports its own
 minimum detectable disagreement because 24 trigger prompts give limited power. Tool parsing
 of the reference supports Hermes/Qwen `<tool_call>` markup only in v0.1.
+
+## D11. Sampler probe v2: top_p placed per context (found by the validation study)
+In the first validation run the sampler probe flagged a Q2_K deployment (1 of 3 repetitions):
+2.4% of samples fell outside the nucleus for top_p=0.6. The sampler was correct; the
+server's own reported log-probs jitter slightly between requests (batch composition with
+parallel slots), and the context's cumulative mass sat within a hair of 0.6, so the boundary
+token moved in and out of the nucleus. v1 only guarded *log-prob gaps* at truncation boundaries,
+which is the right check for top_k but not for top_p. v2 places top_p per context at the
+midpoint between two consecutive cumulative masses (closest to the nominal 0.6, boundary token
+>= 4% probability, >= 5% of mass excluded), so jitter below 0.02 cannot move the boundary;
+min_p cutoffs get the analogous margin check. The study was re-run in full with v2; the v1
+results are kept in docs/data for transparency.

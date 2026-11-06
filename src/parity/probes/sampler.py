@@ -20,7 +20,7 @@ below ``alpha`` (see docs/methodology.md).
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 from scipy import stats
@@ -28,7 +28,12 @@ from scipy import stats
 from parity.client import EndpointError
 from parity.probes.base import Finding, Probe, ProbeContext, ProbeResult, Status
 from parity.stats.gtest import expected_null_tv, g_test
-from parity.stats.sampling import Expected, SamplerSettings, expected_distribution
+from parity.stats.sampling import (
+    Expected,
+    SamplerSettings,
+    expected_distribution,
+    stable_top_p,
+)
 from parity.suites import load_json
 
 VIOLATION_TOLERANCE = 1e-3  # numerical slack for the out-of-support rate under H0
@@ -36,6 +41,10 @@ MIN_VIOLATION_RATE = 0.01  # practical threshold for calling a violation rate a 
 MIN_TV = 0.03  # practical threshold on the in-support total variation distance
 MIN_COVERAGE = 0.9  # reported top-K must cover this much probability mass
 MIN_BOUNDARY_GAP = 0.05  # skip cases whose truncation boundary sits on near-tied tokens
+# Skip top_p/min_p cases whose cutoff lies this close to the cumulative mass (or threshold):
+# the server's own log-probs jitter between requests (batching with parallel slots), so a
+# boundary token within this margin may be in the nucleus on one request and out on the next.
+MIN_CUTOFF_MARGIN = 0.02
 
 
 @dataclass
@@ -52,7 +61,8 @@ class PromptState:
 class CaseState:
     case_id: str
     settings: SamplerSettings
-    per_prompt: list[tuple[PromptState, Expected]]
+    # each context gets its own settings: top_p is placed per context (see stable_top_p)
+    per_prompt: list[tuple[PromptState, Expected, SamplerSettings]]
     counts: list[dict[int, int]] = field(default_factory=list)
     n: int = 0
     done: bool = False
@@ -83,7 +93,7 @@ def evaluate_case(case: CaseState) -> tuple[float, float, float, float]:
     violations = 0
     total = 0
     g_total, df_total, tv_num, tv_den = 0.0, 0, 0.0, 0
-    for (_, exp), counts in zip(case.per_prompt, case.counts, strict=True):
+    for (_, exp, _s), counts in zip(case.per_prompt, case.counts, strict=True):
         support = {int(t): i for i, t in enumerate(exp.ids)}
         obs = np.zeros(len(exp.ids))
         in_r = 0
@@ -117,7 +127,7 @@ def describe(case: CaseState) -> str:
         if s.top_k > 0:
             what.append(f"top_k={s.top_k}")
         if s.top_p < 1.0:
-            what.append(f"top_p={s.top_p}")
+            what.append(f"top_p (about {s.top_p}, placed per context)")
         names = " / ".join(what) or "the expected support"
         return (
             f"{case.violation_rate:.1%} of samples fell outside the tokens allowed by {names} "
@@ -135,6 +145,7 @@ def describe(case: CaseState) -> str:
 class SamplerProbe(Probe):
     id = "sampler.conformance"
     family = "sampler"
+    version = "2"  # v2: top_p placed per context away from cumulative-mass boundaries
 
     async def run(self, ctx: ProbeContext) -> ProbeResult:
         caps = ctx.adapter.capabilities
@@ -192,21 +203,35 @@ class SamplerProbe(Probe):
             settings = SamplerSettings(
                 c["temperature"], c["top_k"], c["top_p"], c.get("min_p", 0.0)
             )
-            per_prompt: list[tuple[PromptState, Expected]] = []
+            per_prompt: list[tuple[PromptState, Expected, SamplerSettings]] = []
             for p in prompts:
-                exp = expected_distribution(p.token_ids, p.logprobs, settings)
+                ps = settings
+                if settings.top_p < 1.0:
+                    chosen = stable_top_p(p.logprobs, settings.top_p, min_margin=MIN_CUTOFF_MARGIN)
+                    if chosen is None:
+                        notes.append(f"{c['id']}: context {p.text!r} skipped (no stable top_p)")
+                        continue
+                    ps = replace(settings, top_p=round(chosen, 4))
+                    notes.append(f"{c['id']}: context {p.text!r} uses top_p={ps.top_p}")
+                exp = expected_distribution(p.token_ids, p.logprobs, ps)
+                if exp.cutoff_margin < MIN_CUTOFF_MARGIN:
+                    notes.append(
+                        f"{c['id']}: context {p.text!r} skipped (cutoff within "
+                        f"{exp.cutoff_margin:.3f} of the cumulative mass)"
+                    )
+                    continue
                 if exp.boundary_gap < MIN_BOUNDARY_GAP:
                     notes.append(
                         f"{c['id']}: context {p.text!r} skipped (near-tied truncation boundary)"
                     )
                     continue
-                per_prompt.append((p, exp))
+                per_prompt.append((p, exp, ps))
             if not per_prompt:
                 continue
             case = CaseState(c["id"], settings, per_prompt, counts=[{} for _ in per_prompt])
             truncating = settings.top_k > 0 or settings.top_p < 1.0
             case.detect_rate = (
-                float(np.mean([e.tail_mass for _, e in per_prompt])) if truncating else 0.0
+                float(np.mean([e.tail_mass for _, e, _s in per_prompt])) if truncating else 0.0
             )
             cases.append(case)
 
@@ -231,11 +256,11 @@ class SamplerProbe(Probe):
                     case,
                     pi,
                     ctx.adapter.next_token(
-                        ctx.client, ctx.model, ps.ids, top_k=1, sampling=case.settings.api_params()
+                        ctx.client, ctx.model, ps.ids, top_k=1, sampling=st.api_params()
                     ),
                 )
                 for case in active
-                for pi, (ps, _) in enumerate(case.per_prompt)
+                for pi, (ps, _, st) in enumerate(case.per_prompt)
                 for _ in range(batch)
             ]
             results = await asyncio.gather(*(j[2] for j in jobs), return_exceptions=True)
