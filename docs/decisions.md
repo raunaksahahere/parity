@@ -62,3 +62,17 @@ temperature-1 log-probs, so quantization differences are not blamed on the sampl
 order-independent combinations are tested (`top_k` with any temperature; `top_p`/`min_p` at
 temperature 1) because llama.cpp truncates before applying temperature while HF/vLLM apply
 temperature first.
+
+## D8. Distribution probe: truncated KL as a lower bound, equivalence-style verdicts
+- KL(reference || target) is estimated from the top-k lists after merging every id outside
+  the *shared* reported set into one bin on both sides. This is a coarse-graining, so the
+  estimate is a rigorous lower bound (property-tested against the true KL); the bias is
+  downward only. Ids missing from one side lose their divergence rather than being floored.
+- Uncertainty is a document-level cluster bootstrap (positions in a document are correlated).
+- PASS requires the one-sided upper bound to be below the threshold (equivalence shown),
+  DEVIATION requires the lower bound to be above it, otherwise INCONCLUSIVE.
+- Measured on Qwen3-0.6B (docs/data/distribution-live.json): BF16 GPU 1e-5, BF16 CPU 5e-5,
+  Q8_0 1.25e-3, Q4_K_M 0.083, Q2_K 1.42 nats. The uncalibrated default threshold (2e-3) is
+  deliberately lenient; calibrated thresholds sit just above benign variation.
+- Threshold calibration uses benign deployment variants (backend, slots, concurrency), not
+  same-configuration repeats (zero on GPU): threshold = max(benign upper bounds) x factor.
