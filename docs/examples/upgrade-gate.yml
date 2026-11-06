@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: raunaksahahere/llm-parity@v0.1.0
+      - uses: raunaksahahere/parity@v0.1.0
         env:
           STAGING_API_KEY: ${{ secrets.STAGING_API_KEY }}   # read from the environment only
         with:
