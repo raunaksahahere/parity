@@ -29,6 +29,10 @@ class EndpointError(RuntimeError):
         self.status = status
 
 
+class BudgetExhaustedError(EndpointError):
+    """The request budget is used up; no further request is sent."""
+
+
 class TokenBucket:
     """Token bucket: `rate` tokens/second with burst capacity `capacity`."""
 
@@ -84,6 +88,8 @@ class EndpointClient:
         max_retries: int = 4,
         timeout_s: float = 300.0,
         transport: httpx.AsyncBaseTransport | None = None,
+        request_limit: int | None = None,
+        on_request: Callable[[int], None] | None = None,
     ) -> None:
         parts = urlsplit(base_url)
         path = parts.path.rstrip("/") or "/v1"  # bare host:port means the usual /v1 API root
@@ -94,6 +100,9 @@ class EndpointClient:
         self._bucket = TokenBucket(rate_per_s) if rate_per_s else None
         self._max_retries = max_retries
         self.requests_sent = 0
+        # hard cap on requests_sent (the run's remaining budget); retries count
+        self.request_limit = request_limit
+        self._on_request = on_request
         self._client = httpx.AsyncClient(
             base_url=self.base_url + "/", timeout=timeout_s, transport=transport
         )
@@ -116,7 +125,13 @@ class EndpointClient:
             async with self._sem:
                 if self._bucket is not None:
                     await self._bucket.acquire()
+                if self.request_limit is not None and self.requests_sent >= self.request_limit:
+                    raise BudgetExhaustedError(
+                        f"request budget exhausted ({self.request_limit} requests in this session)"
+                    )
                 self.requests_sent += 1
+                if self._on_request is not None:
+                    self._on_request(self.requests_sent)
                 try:
                     resp = await self._client.post(path, json=payload, headers=self._headers())
                 except (httpx.TransportError, httpx.TimeoutException) as exc:

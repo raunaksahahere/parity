@@ -24,6 +24,11 @@ def _fmt(v: float | None, spec: str = ".4g") -> str:
     return "n/a" if v is None else format(v, spec)
 
 
+def _cell(text: str) -> str:
+    """Escape a Markdown table cell (a bare | would start a new column)."""
+    return text.replace("|", "\\|").replace("\n", " ")
+
+
 def to_markdown(report: RunReport) -> str:
     r = report
     lines = [
@@ -31,11 +36,28 @@ def to_markdown(report: RunReport) -> str:
         "",
         f"**Verdict: {r.verdict.value}**. {r.summary}",
         "",
+    ]
+    if r.coverage is not None:
+        c = r.coverage
+        lines.append(f"**Coverage: {len(c.evaluated)}/{c.total} probes evaluated.**")
+        if c.skipped:
+            lines += ["", "| Skipped probe | Why |", "|---|---|"]
+            lines += [f"| `{p}` | {_cell(why)} |" for p, why in c.skipped.items()]
+        if c.required:
+            unmet = ", ".join(f"`{p}`" for p in c.unmet_required) or "none"
+            lines += ["", f"Required probes: {', '.join(c.required)}; not decided: {unmet}."]
+        lines.append("")
+    lines += [
         f"- Target: `{r.target.base_url}` (model `{r.target.model}`, adapter `{r.target.adapter}`)",
         f"- Reference: {r.reference.kind} `{r.reference.model_id}` @ `{r.reference.revision}`",
         f"- Run `{r.run_id}`, suite `{r.suite}`, alpha {r.alpha}, {r.requests_total} requests, "
         f"{r.duration_s} s, parity {r.parity_version}",
     ]
+    if r.requests_consumed is not None and (r.resumed or r.requests_consumed != r.requests_total):
+        lines.append(
+            f"- Requests consumed (retries, interrupted probes and earlier sessions included): "
+            f"{r.requests_consumed}" + (" (resumed run)" if r.resumed else "")
+        )
     if r.calibration:
         th = ", ".join(f"{k}={v:.3g}" for k, v in r.calibration.thresholds.items())
         lines.append(f"- Calibration ({r.calibration.created}): {th}")
@@ -54,8 +76,9 @@ def to_markdown(report: RunReport) -> str:
         p = o.result
         was = f" (was {p.status.value})" if o.final_status != p.status else ""
         pv = f"{_fmt(p.p_value, '.3g')} / {_fmt(o.adjusted_p, '.3g')}"
+        effect = f"{_fmt(p.effect)} {_cell(p.effect_unit)}"
         lines.append(
-            f"| `{p.probe}` | {o.final_status.value}{was} | {_fmt(p.effect)} {p.effect_unit} | "
+            f"| `{p.probe}` | {o.final_status.value}{was} | {effect} | "
             f"{_fmt(p.threshold, '.3g')} | {pv} | {p.n_requests} |"
         )
     lines.append("")

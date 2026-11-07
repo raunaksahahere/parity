@@ -43,6 +43,7 @@ class ProbeResult(BaseModel):
     ci: tuple[float, float] | None = None
     threshold: float | None = None
     n_requests: int = 0
+    duration_s: float | None = None  # wall-clock seconds the probe ran
     power: Literal["normal", "lower"] = "normal"
     metrics: dict[str, float | None] = Field(default_factory=dict)
     findings: list[Finding] = Field(default_factory=list)

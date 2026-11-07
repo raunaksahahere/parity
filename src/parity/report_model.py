@@ -39,6 +39,8 @@ class ReferenceInfo(BaseModel):
     model_id: str
     revision: str
     dtype: str | None = None
+    model_fingerprint: str | None = None  # sha256 over config and weight files (hf:local)
+    tokenizer_fingerprint: str | None = None  # tokenizer files and observed behaviour
 
 
 class ProbeOutcome(BaseModel):
@@ -52,6 +54,18 @@ class CalibrationInfo(BaseModel):
     path: str
     created: str
     thresholds: dict[str, float]
+    fingerprint: str | None = None  # sha256 of the calibration's content
+
+
+class Coverage(BaseModel):
+    """Which probes produced evidence. A verdict only speaks for the probes it evaluated."""
+
+    total: int
+    evaluated: list[str]  # ran and returned PASS, DEVIATION or INCONCLUSIVE
+    decided: list[str]  # returned PASS or DEVIATION
+    skipped: dict[str, str] = Field(default_factory=dict)  # probe -> reason
+    required: list[str] = Field(default_factory=list)  # probes the caller required
+    unmet_required: list[str] = Field(default_factory=list)  # required but not decided
 
 
 class RunReport(BaseModel):
@@ -65,6 +79,12 @@ class RunReport(BaseModel):
     alpha: float
     budget: int | None = None
     requests_total: int
+    # every request sent to the target by this run, in all sessions of a resumed run, including
+    # retries and probes that were interrupted (None in reports written by parity 0.1.0)
+    requests_consumed: int | None = None
+    resumed: bool = False
+    run_fingerprint: str | None = None  # sha256 of the run manifest's identity
+    coverage: Coverage | None = None
     target: TargetInfo
     reference: ReferenceInfo
     calibration: CalibrationInfo | None = None

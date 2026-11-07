@@ -18,18 +18,26 @@ table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{text-align:left;
 .muted{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px}
 ul{margin:4px 0 4px 20px;padding:0}code{font-size:.85em}.tablewrap{overflow-x:auto}
 details{margin:4px 0}svg{max-width:100%;height:auto}
+.coverage{margin:0 0 16px}.covrow{margin:8px 0 4px}.covrow .chip{margin:0 2px 4px 0}
 </style>
 </head>
 <body><main>
 <h1>Parity conformance report</h1>
 <div class="muted">{{ r.target.model }} at {{ r.target.base_url }} · run {{ r.run_id }} · parity {{ r.parity_version }}</div>
 <div class="banner {{ r.verdict.value }}"><b>{{ r.verdict.value }}</b><br>{{ r.summary }}</div>
+{% if r.coverage %}{% set c = r.coverage %}
+<div class="card coverage"><b>Coverage: {{ c.evaluated|length }}/{{ c.total }} probes evaluated</b>
+<div class="covrow">{% for o in r.probes %}<span class="chip {{ o.final_status.value }}" title="{{ o.reason }}">{{ o.result.family }}</span> {% endfor %}</div>
+{% if c.skipped %}<ul class="muted">{% for p, why in c.skipped.items() %}<li><code>{{ p }}</code> skipped: {{ why }}</li>{% endfor %}</ul>{% endif %}
+{% if c.required %}<div>Required: {{ c.required|join(", ") }}{% if c.unmet_required %} · <b>not decided: {{ c.unmet_required|join(", ") }}</b>{% endif %}</div>{% endif %}
+</div>
+{% endif %}
 
 <h2>Setup</h2>
 <div class="tablewrap"><table>
 <tr><th>Target</th><td>{{ r.target.base_url }} (model <code>{{ r.target.model }}</code>, adapter <code>{{ r.target.adapter }}</code>)</td></tr>
 <tr><th>Reference</th><td>{{ r.reference.kind }} · <code>{{ r.reference.model_id }}</code> @ <code>{{ r.reference.revision }}</code>{% if r.reference.dtype %} · {{ r.reference.dtype }}{% endif %}</td></tr>
-<tr><th>Suite</th><td>{{ r.suite }}, alpha {{ r.alpha }}, {{ r.requests_total }} requests{% if r.budget %} (budget {{ r.budget }}){% endif %}, {{ r.duration_s }} s</td></tr>
+<tr><th>Suite</th><td>{{ r.suite }}, alpha {{ r.alpha }}, {{ r.requests_total }} requests{% if r.budget %} (budget {{ r.budget }}){% endif %}{% if r.requests_consumed is not none and (r.resumed or r.requests_consumed != r.requests_total) %}, {{ r.requests_consumed }} consumed in all{% if r.resumed %} (resumed){% endif %}{% endif %}, {{ r.duration_s }} s</td></tr>
 <tr><th>Calibration</th><td>{% if r.calibration %}{{ r.calibration.created }}: {% for k, v in r.calibration.thresholds.items() %}{{ k }}={{ "%.3g"|format(v) }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}none (uncalibrated defaults){% endif %}</td></tr>
 {% if r.lower_power %}<tr><th>Power</th><td>Lower: some core probes could not run on this endpoint.</td></tr>{% endif %}
 </table></div>

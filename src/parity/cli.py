@@ -11,11 +11,30 @@ import typer
 
 from parity import __version__
 from parity.history import History
+from parity.manifest import ResumeError
 from parity.probes.base import ProbeResult
 from parity.render import to_html, to_markdown, write_reports
 from parity.report_model import ReferenceInfo, RunReport
-from parity.stats.calibration import FLOORS, Calibration, benign_values, calibrate_threshold
-from parity.suite import PROBE_CLASSES, SUITES, Reference, Suite, Target, hf_reference
+from parity.stats.calibration import (
+    FLOORS,
+    Calibration,
+    CalibrationError,
+    benign_values,
+    calibrate_threshold,
+)
+from parity.suite import (
+    PROBE_CLASSES,
+    SUITES,
+    Reference,
+    Suite,
+    Target,
+    calibration_context,
+    hf_reference,
+    sanitize_url,
+)
+from parity.verdict import coverage_line
+
+CALIBRATION_PROBES = ["distribution.teacher_forced", "greedy.agreement", "tools.structured"]
 
 app = typer.Typer(
     help="Statistical conformance testing for LLM inference endpoints.", no_args_is_help=True
@@ -111,6 +130,13 @@ def run(
     ),
     seed: int = 0,
     fail_fast: Annotated[bool, typer.Option(help="Stop at the first deviation")] = False,
+    require_probe: Annotated[
+        list[str] | None,
+        typer.Option(
+            help="Probe that must reach PASS or DEVIATION (id, family name or 'all'; "
+            "repeatable). If one is skipped or inconclusive, a PASS becomes INCONCLUSIVE."
+        ),
+    ] = None,
 ) -> None:
     """Compare an endpoint with a reference implementation of the same model."""
     try:
@@ -121,15 +147,18 @@ def run(
         s = Suite(
             name=suite, alpha=alpha, budget=budget, seed=seed, probes=probes,
             options={"claimed_context": claimed_context}, calibration=cal,
-            calibration_path=str(calibration or ""), fail_fast=fail_fast,
+            calibration_path=str(calibration or ""), fail_fast=fail_fast, require=require_probe,
         )  # fmt: skip
         tgt = Target(target, served_model or model, adapter, api_key_env, concurrency, rate_per_s)
+        s.check_calibration(ref)  # refuse an incompatible calibration before any request
         typer.echo(f"Running suite '{suite}' against {target} (reference {ref.info.kind})")
         report = s.run(
             tgt, ref, out_dir=out, run_id=resume, resume=resume is not None, on_probe=_print_result
         )
     except typer.Exit:
         raise
+    except (CalibrationError, ResumeError) as exc:
+        raise _fail(str(exc)) from exc
     except Exception as exc:
         raise _fail(f"{type(exc).__name__}: {exc}") from exc
 
@@ -137,6 +166,8 @@ def run(
     db = History(history or out / "history.duckdb")
     db.record(report)
     db.close()
+    if report.coverage is not None:
+        typer.echo(f"\nCoverage: {coverage_line(report.coverage)}")
     typer.echo(f"\nVerdict: {report.verdict.value}. {report.summary}")
     typer.echo(f"Reports: {paths['html']}")
     raise typer.Exit(report.exit_code)
@@ -197,14 +228,13 @@ def calibrate(
     try:
         ref = _build_reference(model, reference, revision, dtype, cache_dir, None, None)
         values: dict[str, dict[str, float]] = {}
+        deployments: dict[str, str] = {}
+        s = Suite(probes=CALIBRATION_PROBES, options={"calibrating": True})
         for item in benign:
             label, _, url = item.partition("=")
             if not url:
                 raise _fail(f"--benign expects LABEL=URL, got {item!r}")
-            s = Suite(
-                probes=["distribution.teacher_forced", "greedy.agreement", "tools.structured"],
-                options={"calibrating": True},
-            )
+            deployments[label] = sanitize_url(url)
             typer.echo(f"Calibrating on {label} ({url})")
             rep = s.run(Target(url, served_model or model), ref, on_probe=_print_result)
             for o in rep.probes:
@@ -215,7 +245,14 @@ def calibrate(
     except Exception as exc:
         raise _fail(f"{type(exc).__name__}: {exc}") from exc
 
-    cal = Calibration(model_id=model, revision=ref.info.revision, suite="core-v1")
+    cal = Calibration(
+        model_id=ref.info.model_id,
+        revision=ref.info.revision,
+        suite="core-v1",
+        context=calibration_context(ref, s.effective_options(), CALIBRATION_PROBES),
+        benign_deployments=deployments,
+        safety_factor=safety_factor,
+    )
     for metric, per_label in values.items():
         cal.metrics[metric] = calibrate_threshold(
             per_label, safety_factor=safety_factor, floor=FLOORS.get(metric, 0.0)
@@ -304,6 +341,14 @@ def canary(
     try:
         ref = _build_reference(model, reference, revision, dtype, cache_dir, None, api_key_env)
         cal = Calibration.load(calibration) if calibration else None
+        Suite(
+            name=suite,
+            options={"claimed_context": claimed_context},
+            calibration=cal,
+            calibration_path=str(calibration or ""),
+        ).check_calibration(ref)
+    except CalibrationError as exc:
+        raise _fail(str(exc)) from exc
     except Exception as exc:
         raise _fail(f"{type(exc).__name__}: {exc}") from exc
     state = CanaryState()

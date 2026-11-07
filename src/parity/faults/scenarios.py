@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from parity.faults.proxy import (
     Mutation,
+    break_argument_schema,
+    drop_tools,
     ignore_param,
+    ignore_tool_choice,
+    malform_json_content,
+    malform_tool_arguments,
+    rename_tool_calls,
     scale_temperature,
     truncate_chat_prompt,
 )
@@ -73,12 +79,34 @@ class ServerSpec:
 @dataclass(frozen=True)
 class Scenario:
     name: str
-    kind: str  # benign | control | fault
+    # benign: calibration only · dev: used while developing fixes, never evaluated ·
+    # control: correct deployment (evaluation) · fault: injected fault (evaluation)
+    kind: str
     description: str
     server: ServerSpec
     mutation: Mutation | None = None
     reps: int = 3
     expects: str = "DEVIATION"  # what a correct tool should report
+    # True for configurations introduced for the v0.1.1 evaluation and never used while the
+    # v0.1.1 fixes were developed (fresh held-out data)
+    fresh: bool = False
+
+    @property
+    def backend(self) -> str:
+        return "gpu" if self.server.gpu else "cpu"
+
+    @property
+    def simulation(self) -> str:
+        """real (a real server setting), request (request rewriting) or response (response
+        corruption)."""
+        return "real" if self.mutation is None else self.mutation.kind
+
+    @property
+    def key(self) -> str:
+        """Stable identity: server spec plus the mutation's label (closures have no stable
+        repr), used to fingerprint results."""
+        mut = self.mutation.label if self.mutation else None
+        return repr((self.kind, self.server, mut, self.expects))
 
 
 BASE = ServerSpec()
@@ -169,6 +197,118 @@ SCENARIOS: tuple[Scenario, ...] = (
         truncate_chat_prompt(6000),
     ),
 )
+
+
+HELD_OUT: tuple[Scenario, ...] = (
+    # fresh correct deployments for the v0.1.1 evaluation (never used during development)
+    Scenario(
+        "heldout-gpu-fa-off",
+        "control",
+        "BF16, GPU, 4 slots, flash attention off",
+        ServerSpec(extra_args=("--flash-attn", "off")),
+        reps=6,
+        expects="PASS",
+        fresh=True,
+    ),
+    Scenario(
+        "heldout-gpu-p3-b1024",
+        "control",
+        "BF16, GPU, 3 slots, ctx 12288, -b 1024 -ub 256",
+        ServerSpec(ctx_size=12288, parallel=3, batch_size=1024, ubatch_size=256),
+        reps=6,
+        expects="PASS",
+        fresh=True,
+    ),
+    Scenario(
+        "heldout-gpu-p1-nocb",
+        "control",
+        "BF16, GPU, 1 slot, continuous batching off",
+        ServerSpec(ctx_size=4096, parallel=1, extra_args=("--no-cont-batching",)),
+        reps=5,
+        expects="PASS",
+        fresh=True,
+    ),
+    Scenario(
+        "heldout-cpu-p2-t8",
+        "control",
+        "BF16, CPU, 2 slots, 8 threads, ctx 8192",
+        ServerSpec(gpu=False, ctx_size=8192, parallel=2, threads=8),
+        reps=3,
+        expects="PASS",
+        fresh=True,
+    ),
+)
+
+# The development deployment used while building and tuning the v0.1.1 tool probe. It is never
+# part of an evaluation table.
+DEV: tuple[Scenario, ...] = (
+    Scenario(
+        "dev-gpu-p4-b256",
+        "dev",
+        "BF16, GPU, 4 slots, -b 256 (development only)",
+        ServerSpec(batch_size=256),
+        reps=2,
+        expects="PASS",
+    ),
+)
+
+TOOL_FAULTS: tuple[Scenario, ...] = (
+    Scenario(
+        "fault-tools-dropped", "fault", "tool definitions dropped (proxy)", BASE, drop_tools()
+    ),
+    Scenario(
+        "fault-tool-choice-ignored",
+        "fault",
+        "tool_choice ignored, always auto (proxy)",
+        BASE,
+        ignore_tool_choice(),
+    ),
+    Scenario(
+        "fault-tool-name-invalid",
+        "fault",
+        "tool calls name a tool that was not provided (proxy)",
+        BASE,
+        rename_tool_calls(),
+    ),
+    Scenario(
+        "fault-tool-args-malformed",
+        "fault",
+        "tool-call arguments are malformed JSON (proxy)",
+        BASE,
+        malform_tool_arguments(),
+    ),
+    Scenario(
+        "fault-tool-args-schema",
+        "fault",
+        "tool-call arguments violate the declared schema (proxy)",
+        BASE,
+        break_argument_schema(),
+    ),
+    Scenario(
+        "fault-json-malformed",
+        "fault",
+        "structured output (response_format) is malformed JSON (proxy)",
+        BASE,
+        malform_json_content(),
+    ),
+)
+
+ORIGINAL_FAULTS: tuple[Scenario, ...] = tuple(s for s in SCENARIOS if s.kind == "fault")
+
+
+def _cpu_twin(sc: Scenario) -> Scenario:
+    return replace(
+        sc,
+        name=f"{sc.name}-cpu",
+        description=f"{sc.description}; CPU",
+        server=replace(sc.server, gpu=False),
+        reps=2,
+    )
+
+
+CPU_FAULTS: tuple[Scenario, ...] = tuple(_cpu_twin(s) for s in ORIGINAL_FAULTS)
+
+SCENARIOS = SCENARIOS + HELD_OUT + DEV + TOOL_FAULTS + CPU_FAULTS
 
 
 def by_name(names: list[str] | None) -> list[Scenario]:

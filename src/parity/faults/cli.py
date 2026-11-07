@@ -21,15 +21,26 @@ def main(args: list[str]) -> int:
     run.add_argument("--probes", nargs="*", help="run only these probes (default: core suite)")
     run.add_argument("--cooldown", type=float, default=0.0, help="idle seconds after each rep")
     run.add_argument("--concurrency", type=int, default=4, help="concurrent requests per run")
+    run.add_argument(
+        "--cool-to", type=float, help="before each rep, wait until sensors are this cool (deg C)"
+    )
+    run.add_argument(
+        "--seed-base", type=int, default=0, help="rep r uses seed SEED_BASE + r (fresh data)"
+    )
+    run.add_argument("--fail-fast", action="store_true", help="real --fail-fast runs")
     run.add_argument("--hf-model", type=Path, default=Path("models/hf/Qwen3-0.6B"))
     run.add_argument("--revision", default="c1899de289a04d12100db370d81485cdf75e47ca")
+    run.add_argument("--model-id", default="Qwen/Qwen3-0.6B", help="model name in reports")
     summ = sub.add_parser("summarize", help="print result tables as Markdown")
     summ.add_argument("--out", type=Path, default=Path("runs/validation"))
     ns = ap.parse_args(args)
 
     if ns.cmd == "list":
         for s in SCENARIOS:
-            print(f"{s.name:28s} {s.kind:8s} reps={s.reps:<3d} {s.description}")
+            print(
+                f"{s.name:32s} {s.kind:8s} {s.backend} {s.simulation:8s} reps={s.reps:<3d} "
+                f"{s.description}"
+            )
         return 0
     if ns.cmd == "run":
         run_study(
@@ -41,7 +52,11 @@ def main(args: list[str]) -> int:
                 reps=ns.reps,
                 probes=ns.probes,
                 cooldown_s=ns.cooldown,
+                cool_to_c=ns.cool_to,
                 concurrency=ns.concurrency,
+                seed_base=ns.seed_base,
+                fail_fast=ns.fail_fast,
+                model_id=ns.model_id,
             )
         )
         return 0

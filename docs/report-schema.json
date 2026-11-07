@@ -16,6 +16,18 @@
      },
      "title": "Thresholds",
      "type": "object"
+    },
+    "fingerprint": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fingerprint"
     }
    },
    "required": [
@@ -24,6 +36,57 @@
     "thresholds"
    ],
    "title": "CalibrationInfo",
+   "type": "object"
+  },
+  "Coverage": {
+   "description": "Which probes produced evidence. A verdict only speaks for the probes it evaluated.",
+   "properties": {
+    "total": {
+     "title": "Total",
+     "type": "integer"
+    },
+    "evaluated": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Evaluated",
+     "type": "array"
+    },
+    "decided": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Decided",
+     "type": "array"
+    },
+    "skipped": {
+     "additionalProperties": {
+      "type": "string"
+     },
+     "title": "Skipped",
+     "type": "object"
+    },
+    "required": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Required",
+     "type": "array"
+    },
+    "unmet_required": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Unmet Required",
+     "type": "array"
+    }
+   },
+   "required": [
+    "total",
+    "evaluated",
+    "decided"
+   ],
+   "title": "Coverage",
    "type": "object"
   },
   "Finding": {
@@ -177,6 +240,18 @@
      "title": "N Requests",
      "type": "integer"
     },
+    "duration_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Duration S"
+    },
     "power": {
      "default": "normal",
      "enum": [
@@ -249,6 +324,30 @@
      ],
      "default": null,
      "title": "Dtype"
+    },
+    "model_fingerprint": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Model Fingerprint"
+    },
+    "tokenizer_fingerprint": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Tokenizer Fingerprint"
     }
    },
    "required": [
@@ -347,6 +446,46 @@
   "requests_total": {
    "title": "Requests Total",
    "type": "integer"
+  },
+  "requests_consumed": {
+   "anyOf": [
+    {
+     "type": "integer"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "title": "Requests Consumed"
+  },
+  "resumed": {
+   "default": false,
+   "title": "Resumed",
+   "type": "boolean"
+  },
+  "run_fingerprint": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "title": "Run Fingerprint"
+  },
+  "coverage": {
+   "anyOf": [
+    {
+     "$ref": "#/$defs/Coverage"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null
   },
   "target": {
    "$ref": "#/$defs/TargetInfo"

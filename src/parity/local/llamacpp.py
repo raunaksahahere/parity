@@ -99,6 +99,10 @@ class LlamaServer:
     def base_url(self) -> str:
         return f"http://127.0.0.1:{self.port}"
 
+    @property
+    def pid(self) -> int | None:
+        return self._proc.pid if self._proc is not None else None
+
     def _command(self) -> list[str]:
         c = self.config
         cmd = [

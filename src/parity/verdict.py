@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from parity.probes.base import ProbeResult, Status
-from parity.report_model import ProbeOutcome
+from parity.report_model import Coverage, ProbeOutcome
 from parity.stats.multitest import holm_bonferroni
 
 EXIT_CODES = {Status.PASS: 0, Status.DEVIATION: 1, Status.INCONCLUSIVE: 2}
@@ -59,7 +59,12 @@ def decide(results: list[ProbeResult], alpha: float) -> tuple[list[ProbeOutcome]
     return outcomes, overall, lower_power
 
 
-def summarize(outcomes: list[ProbeOutcome], overall: Status, lower_power: bool) -> str:
+def summarize(
+    outcomes: list[ProbeOutcome],
+    overall: Status,
+    lower_power: bool,
+    unmet_required: list[str] | None = None,
+) -> str:
     dev = [o.result.probe for o in outcomes if o.final_status is Status.DEVIATION]
     inc = [o.result.probe for o in outcomes if o.final_status is Status.INCONCLUSIVE]
     skip = [o.result.probe for o in outcomes if o.final_status is Status.SKIPPED]
@@ -73,4 +78,42 @@ def summarize(outcomes: list[ProbeOutcome], overall: Status, lower_power: bool) 
         text += " Skipped: " + ", ".join(skip) + "."
     if lower_power:
         text += " Some core probes could not run, so this result has lower power."
+    if unmet_required:
+        text += " Required probes did not reach a decision: " + ", ".join(unmet_required) + "."
+    return text
+
+
+def coverage(outcomes: list[ProbeOutcome], required: list[str] | None = None) -> Coverage:
+    req = list(required or [])
+    decided = [
+        o.result.probe for o in outcomes if o.final_status in (Status.PASS, Status.DEVIATION)
+    ]
+    return Coverage(
+        total=len(outcomes),
+        evaluated=[o.result.probe for o in outcomes if o.final_status is not Status.SKIPPED],
+        decided=decided,
+        skipped={
+            o.result.probe: (o.reason or "skipped")
+            for o in outcomes
+            if o.final_status is Status.SKIPPED
+        },
+        required=req,
+        unmet_required=[p for p in req if p not in decided],
+    )
+
+
+def apply_requirements(overall: Status, cov: Coverage) -> Status:
+    """A PASS needs every required probe to have reached a decision; a DEVIATION stands on its
+    own evidence whatever else was skipped."""
+    if cov.unmet_required and overall is Status.PASS:
+        return Status.INCONCLUSIVE
+    return overall
+
+
+def coverage_line(cov: Coverage) -> str:
+    text = f"{len(cov.evaluated)}/{cov.total} probes evaluated"
+    if cov.skipped:
+        text += "; skipped: " + ", ".join(cov.skipped)
+    if cov.unmet_required:
+        text += "; REQUIRED BUT NOT EVALUATED: " + ", ".join(cov.unmet_required)
     return text

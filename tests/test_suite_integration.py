@@ -12,7 +12,7 @@ from parity.probes.base import Status
 from parity.render import to_html, to_markdown, write_reports
 from parity.report_model import SCHEMA_VERSION, ReferenceInfo, RunReport
 from parity.stats.calibration import Calibration, calibrate_threshold
-from parity.suite import sanitize_url
+from parity.suite import calibration_context, sanitize_url
 from parity.tokenization import TokenizerKit
 from tests.fake_endpoint import FakeEndpoint, SuiteReference
 from tests.fake_lm import FakeLM
@@ -114,11 +114,15 @@ async def test_probe_crash_is_isolated(
 
 
 async def test_calibration_thresholds_reach_probes(toy_kit: TokenizerKit) -> None:
-    cal = Calibration(model_id="toy", revision="abc123", suite="core-v1")
-    cal.metrics["kl_mean"] = calibrate_threshold({"benign": 1e-4})
-    suite, target, ref = make(
-        toy_kit, FakeEndpoint(toy_kit, seed=9), calibration=cal, calibration_path="cal.json"
+    suite, target, ref = make(toy_kit, FakeEndpoint(toy_kit, seed=9))
+    cal = Calibration(
+        model_id="toy",
+        revision="abc123",
+        suite="core-v1",
+        context=calibration_context(ref, suite.effective_options(), suite.probe_ids()),
     )
+    cal.metrics["kl_mean"] = calibrate_threshold({"benign": 1e-4})
+    suite.calibration, suite.calibration_path = cal, "cal.json"
     rep = await suite.arun(target, ref)
     assert rep.calibration is not None and rep.calibration.thresholds["kl_mean"] == pytest.approx(
         2e-4

@@ -38,7 +38,7 @@ def test_scenario_catalogue_is_consistent() -> None:
     names = [s.name for s in SCENARIOS]
     assert len(names) == len(set(names))
     kinds = {s.kind for s in SCENARIOS}
-    assert kinds == {"benign", "control", "fault"}
+    assert kinds == {"benign", "dev", "control", "fault"}
     assert all(s.expects == "PASS" for s in SCENARIOS if s.kind != "fault")
     # the faults requested in the spec are all present
     required = [
@@ -56,6 +56,22 @@ def test_scenario_catalogue_is_consistent() -> None:
     benign = {s.server.key for s in SCENARIOS if s.kind == "benign"}
     assert all(s.server.key not in benign for s in SCENARIOS if s.kind == "control")
     assert by_name(["fault-topk-ignored"])[0].mutation is not None
+    # fresh held-out controls share no configuration with calibration, development or the
+    # earlier controls, so they measure generalization to unseen benign deployments
+    seen = {s.server.key for s in SCENARIOS if s.kind in ("benign", "dev")} | {
+        s.server.key for s in SCENARIOS if s.kind == "control" and not s.fresh
+    }
+    fresh = [s for s in SCENARIOS if s.fresh]
+    assert fresh and all(s.kind == "control" and s.server.key not in seen for s in fresh)
+    assert {s.backend for s in fresh} == {"gpu", "cpu"}
+    # every original fault also runs on the CPU; simulations are labelled by kind
+    gpu_faults = {s.name for s in SCENARIOS if s.kind == "fault" and s.backend == "gpu"}
+    for name in gpu_faults - {s.name for s in SCENARIOS if s.name.startswith("fault-tool")}:
+        if name != "fault-json-malformed":
+            assert f"{name}-cpu" in names, name
+    sims = {s.name: s.simulation for s in SCENARIOS}
+    assert sims["fault-tools-dropped"] == "request" and sims["fault-json-malformed"] == "response"
+    assert sims["fault-quant-q8_0"] == "real"
 
 
 def test_fail_fast_requests_stop_at_the_first_deviating_probe() -> None:
@@ -83,8 +99,10 @@ def test_harness_cli_passes_every_run_option_to_the_study(monkeypatch) -> None: 
     monkeypatch.setattr(fcli, "run_study", lambda cfg: seen.setdefault("cfg", cfg))
     code = fcli.main(
         ["run", "--out", "x", "--reps", "2", "--scenarios", "fault-quant-q2_k",
-         "--probes", "sampler.conformance", "--cooldown", "30", "--concurrency", "2"]
+         "--probes", "sampler.conformance", "--cooldown", "30", "--concurrency", "2",
+         "--cool-to", "65", "--seed-base", "1000", "--fail-fast"]
     )  # fmt: skip
     cfg = seen["cfg"]
     assert code == 0 and cfg.reps == 2 and cfg.scenarios == ["fault-quant-q2_k"]
     assert cfg.probes == ["sampler.conformance"] and cfg.cooldown_s == 30 and cfg.concurrency == 2
+    assert cfg.cool_to_c == 65 and cfg.seed_base == 1000 and cfg.fail_fast
