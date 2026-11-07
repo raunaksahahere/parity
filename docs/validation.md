@@ -27,7 +27,10 @@ re-run with the same calibration. The **Results** section is the second run. Rep
 **Prompt cache.** In the second run, the CPU control and eight fault scenarios ran with
 llama.cpp's default 8 GiB host prompt cache; it drove the machine into swap, so the remaining
 scenarios (both GPU controls and the three quantizations) ran with `--cache-ram 0`
-(decision D12). Each scenario uses one setting throughout.
+(decision D12). Each scenario uses one setting throughout. The second run was also
+interrupted once by a machine reboot (after repetition 4 of `control-gpu-p1-smallbatch`) and
+resumed with `parity inject-faults run`, which skips finished repetitions; the remaining
+repetitions of that control used a fresh server process with the same configuration.
 
 **Backends.** GPU deployments run on the RX 6500M through Vulkan (the server log line
 `offloaded 29/29 layers to GPU` is asserted at start-up); CPU deployments use the CPU build.
