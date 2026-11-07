@@ -205,3 +205,28 @@ tool_calls; the model's own `<tool_call>` markup stays in the content). Strict
   These rows informed the design and are excluded from every evaluation table.
 * Suite data moved to `core-v2` (only `tools.json` changed); `core-v1` is kept verbatim so v0.1.0
   results stay reproducible with `options={"suite": "core-v1"}`.
+
+## D16. Ollama 0.33.2: what its OpenAI-compatible API offers (v0.2.0)
+Measured with `scripts/ollama_capabilities.py` (raw answers in
+`docs/data/v0.2.0-ollama-capabilities-*.json`) on models created from the same verified GGUF
+files used with llama.cpp (Qwen3-0.6B BF16, SmolLM2-360M-Instruct F16), with the chat template,
+parameters and system prompt copied from the Ollama library (`qwen3:0.6b`, `smollm2:360m`):
+* `/v1/completions` rejects token-id prompts (HTTP 400), ignores `echo` and returns no log-probs,
+  so the distribution, greedy and sampler probes cannot run; reports say so in their coverage
+  block and are marked lower power. `/v1/chat/completions` reports `usage.prompt_tokens` and the
+  log-probs of generated tokens.
+* `chat_template_kwargs` is ignored; `reasoning_effort: "none"` switches Qwen3's thinking off
+  (`think: false` does not). The Ollama adapter translates a probe's `enable_thinking: false`.
+* `tool_choice` is ignored: `"none"` still returned a tool call. Parity's deterministic check
+  reports this as a deviation, which it is (the endpoint does not honour the parameter).
+* A model created from a GGUF without a TEMPLATE gets `{{ .Prompt }}`; chat then goes through an
+  embedded llama.cpp without `--jinja`, and requests with `tools` fail with HTTP 500 ("tools
+  param requires --jinja flag").
+* Models whose library template has no tool format reject `tools` with HTTP 400 ("does not
+  support tools"). The tools and template probes now skip their tool sections in that case, and
+  when the model's official template has no tool format, instead of reporting an error or a
+  false deviation (tools probe v3, template probe v2).
+* Token counts for a system + user chat: official Qwen3 template 18 (22 with thinking off),
+  Ollama library template 20 (26); official SmolLM2 template 19, Ollama library template 19.
+  The Qwen3 library template is therefore not the official template, and the template probe is
+  expected to say so.
