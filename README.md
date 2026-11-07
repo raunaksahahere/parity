@@ -79,6 +79,25 @@ budget, bootstrap confidence intervals, Holm-Bonferroni across probes. Details a
 where each procedure can mislead: [docs/methodology.md](docs/methodology.md).
 
 <!-- RESULTS:BEGIN -->
+## Measured results
+
+Qwen3-0.6B on a laptop (CPU + RX 6500M), 23 correct-deployment controls and 11 injected faults x 3 repetitions. Method, controls and caveats: [docs/validation.md](docs/validation.md).
+
+False positives on correct deployments (held-out controls): **0/23** runs (95% CI 0.0-14.8%), nominal alpha 0.05.
+
+| Injected fault | Detected | Flagged by | Requests to detection (fail-fast) | Full-suite requests | Full-suite time |
+|---|---|---|---:|---:|---:|
+| template-nosystem | 3/3 | template, longctx | 7 | 6859 | 2.3 min |
+| template-llama3 | 3/3 | template, longctx | 7 | 7359 | 118 s |
+| topk-ignored | 3/3 | sampler | 5259 | 5259 | 2.0 min |
+| topp-ignored | 3/3 | sampler | 6559 | 6559 | 2.2 min |
+| temperature-ignored | 3/3 | greedy, sampler | 52 | 4959 | 108 s |
+| temperature-x1.5 | 3/3 | sampler | 2759 | 2759 | 74 s |
+| silent-truncation | 3/3 | longctx | 16 | 7359 | 2.5 min |
+| ctx-reduced | 3/3 | longctx | 16 | 6859 | 118 s |
+| quant-q2_k | 3/3 | greedy, distribution, sampler (1/3) | 52 | 3359 | 80 s |
+| quant-q4_k_m | 3/3 | greedy, distribution | 52 | 6359 | 81 s |
+| quant-q8_0 | 3/3 | distribution | 355 | 6859 | 88 s |
 <!-- RESULTS:END -->
 
 ## Limits of inference

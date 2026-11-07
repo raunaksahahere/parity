@@ -19,7 +19,7 @@ from parity.local.llamacpp import LlamaServer
 from parity.probes.base import Status
 from parity.report_model import ReferenceInfo, RunReport
 from parity.stats.calibration import FLOORS, Calibration, benign_values, calibrate_threshold
-from parity.suite import Reference, Suite, Target
+from parity.suite import STATISTICAL_PROBES, SUITES, Reference, Suite, Target
 
 SERVED_MODEL = "qwen3"
 CALIBRATION_PROBES = ["distribution.teacher_forced", "greedy.agreement", "tools.structured"]
@@ -33,6 +33,7 @@ class StudyConfig:
     paths: Paths = field(default_factory=Paths)
     scenarios: list[str] | None = None
     reps: int | None = None  # override every scenario's repetition count
+    probes: list[str] | None = None  # run only these probes (default: the whole core suite)
     safety_factor: float = 2.0
     log: Callable[[str], None] = print
 
@@ -136,6 +137,8 @@ def run_study(cfg: StudyConfig) -> None:
                 url, proxy = dep.url_for(sc)
                 try:
                     suite = Suite(
+                        probes=cfg.probes,
+                        alpha=subset_alpha(cfg.probes),
                         seed=rep,
                         options={"claimed_context": CLAIMED_CONTEXT},
                         calibration=cal,
@@ -158,6 +161,16 @@ def run_study(cfg: StudyConfig) -> None:
                 )
     finally:
         dep.close()
+
+
+def subset_alpha(probes: list[str] | None, alpha: float = 0.05) -> float:
+    """Familywise alpha for a probe subset that gives each statistical probe the same share
+    (alpha / m_core) it has in the full core suite, so a subset run behaves like the full run."""
+    if not probes:
+        return alpha
+    m_core = sum(p in STATISTICAL_PROBES for p in SUITES["core"])
+    m_sub = sum(p in STATISTICAL_PROBES for p in probes)
+    return alpha * max(1, m_sub) / m_core
 
 
 def summarize_run(sc: Scenario, rep: int, report: RunReport) -> dict[str, Any]:

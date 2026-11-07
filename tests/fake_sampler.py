@@ -20,6 +20,7 @@ class FakeSamplerServer:
         honor_temperature: bool = True,
         always_truncate_to: int = 0,
         report_cap: int = 0,
+        jitter: float = 0.0,
         seed: int = 0,
     ) -> None:
         self.logits = prompts
@@ -28,6 +29,7 @@ class FakeSamplerServer:
         self.honor_temperature = honor_temperature
         self.always_truncate_to = always_truncate_to
         self.report_cap = report_cap
+        self.jitter = jitter  # per-request logit noise, used for both the report and the sample
         self.rng = np.random.default_rng(seed)
         self.calls = 0
 
@@ -53,6 +55,9 @@ class FakeSamplerServer:
         self.calls += 1
         body = json.loads(request.content)
         lp = self.logits[tuple(body["prompt"])]
+        if self.jitter:
+            noisy = lp + self.rng.normal(0.0, self.jitter, len(lp))
+            lp = noisy - np.log(np.exp(noisy).sum())
         k = int(body.get("logprobs", 1))
         tok = self._sample(lp, body)
         order = np.argsort(-lp)[: max(min(k, self.report_cap) if self.report_cap else k, 1)]

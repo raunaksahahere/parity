@@ -73,6 +73,13 @@ class CaseState:
     tv: float = 0.0
     stopped_at: int = 0
     detect_rate: float = 0.0  # violation rate the case would show if truncation were ignored
+    # v3: each sample is checked against the distribution reported in its own response
+    violations: int = 0
+    checked: int = 0  # samples whose own reported distribution determined the support
+    # G-test on samples that landed in their own response's support, per context: observed
+    # counts and the sum of each such sample's own expected distribution (a mixture)
+    g_obs: list[dict[int, int]] = field(default_factory=list)
+    g_exp: list[dict[int, float]] = field(default_factory=list)
 
 
 def _entropy(lp: np.ndarray) -> float:
@@ -81,43 +88,86 @@ def _entropy(lp: np.ndarray) -> float:
 
 
 def evaluate_case(case: CaseState) -> tuple[float, float, float, float]:
-    """Returns (p_violation, p_gtest, violation_rate, excess_tv) from the current counts.
+    """Returns (p_violation, p_gtest, violation_rate, excess_tv) from the samples so far.
 
-    Violations are only meaningful when the case truncates (top_k/top_p/min_p): without
-    truncation, probability that moves beyond the provider's reported top-K (for instance at
-    temperature > 1) is legitimate, so those samples are dropped from the conditional test.
-    ``excess_tv`` is the plug-in TV distance minus its expectation under H0.
+    Every sample is judged against the distribution the server reported *in the same
+    response*. Violations (truncating cases only) use ``own_support_violation``. The G-test
+    compares the tokens of samples that landed in their own response's support with the
+    mixture of those responses' expected distributions; conditional on landing in that support,
+    each sample follows its own expected distribution exactly, whatever the jitter between
+    requests. ``excess_tv`` is the plug-in TV distance minus its expectation under H0.
     """
     s = case.settings
     truncating = s.top_k > 0 or s.top_p < 1.0 or s.min_p > 0.0
-    violations = 0
-    total = 0
     g_total, df_total, tv_num, tv_den = 0.0, 0, 0.0, 0
-    for (_, exp, _s), counts in zip(case.per_prompt, case.counts, strict=True):
-        support = {int(t): i for i, t in enumerate(exp.ids)}
-        obs = np.zeros(len(exp.ids))
-        in_r = 0
-        for tok, c in counts.items():
-            total += c
-            if tok in support:
-                obs[support[tok]] += c
-                in_r += c
-            else:
-                violations += c
-        if in_r > 0 and len(exp.ids) > 1:
-            res = g_test(obs, exp.probs)
-            g_total += res.g
-            df_total += res.df
-            excess = res.tv - expected_null_tv(exp.probs, in_r)
-            tv_num += excess * in_r
-            tv_den += in_r
-    if truncating and total:
-        p_v = float(stats.binom.sf(violations - 1, total, VIOLATION_TOLERANCE))
-        rate = violations / total
+    for obs_d, exp_d in zip(case.g_obs, case.g_exp, strict=True):
+        n = sum(obs_d.values())
+        if n == 0 or len(exp_d) < 2:
+            continue
+        ids = sorted(exp_d)
+        probs = np.array([exp_d[i] for i in ids]) / n
+        obs = np.array([obs_d.get(i, 0) for i in ids], dtype=float)
+        res = g_test(obs, probs / probs.sum())
+        g_total += res.g
+        df_total += res.df
+        tv_num += (res.tv - expected_null_tv(probs / probs.sum(), n)) * n
+        tv_den += n
+    if truncating and case.checked:
+        p_v = float(stats.binom.sf(case.violations - 1, case.checked, VIOLATION_TOLERANCE))
+        rate = case.violations / case.checked
     else:
         p_v, rate = 1.0, 0.0
     p_g = float(stats.chi2.sf(g_total, df_total)) if df_total > 0 else 1.0
     return p_v, p_g, rate, (tv_num / tv_den if tv_den else 0.0)
+
+
+def record_sample(
+    case: CaseState, pi: int, sampled: int, own_ids: np.ndarray, own_lp: np.ndarray
+) -> None:
+    """Account one sample against the distribution reported in its own response."""
+    st = case.per_prompt[pi][2]
+    case.counts[pi][sampled] = case.counts[pi].get(sampled, 0) + 1
+    if len(own_ids) == 0:
+        return
+    truncating = st.top_k > 0 or st.top_p < 1.0 or st.min_p > 0.0
+    verdict = own_support_violation(sampled, own_ids, own_lp, st) if truncating else None
+    if truncating and verdict is not None:
+        case.checked += 1
+        case.violations += verdict
+    if truncating and verdict is None:
+        return  # this response does not determine the support: leave the sample out
+    exp = expected_distribution(own_ids, own_lp, st)
+    support = [int(t) for t in exp.ids]
+    if sampled not in support:
+        return  # outside its own support: a violation or, untruncated, beyond the report
+    case.g_obs[pi][sampled] = case.g_obs[pi].get(sampled, 0) + 1
+    for tid, pr in zip(support, exp.probs.tolist(), strict=True):
+        case.g_exp[pi][tid] = case.g_exp[pi].get(tid, 0.0) + pr
+
+
+def own_support_violation(
+    sampled: int, own_ids: np.ndarray, own_lp: np.ndarray, settings: SamplerSettings
+) -> bool | None:
+    """Is ``sampled`` outside the support allowed by ``settings``, judged on the distribution the
+    server reported *in the same response*? None when that response does not determine it.
+
+    The server's log-probs jitter between requests (on low-bit quantizations by more than the
+    gap between neighbouring tokens), so only the same forward pass is a safe reference.
+    """
+    if len(own_ids) == 0:
+        return None
+    exp = expected_distribution(own_ids, own_lp, settings)
+    if sampled in {int(t) for t in exp.ids}:
+        return False
+    reported = {int(t) for t in own_ids}
+    if settings.top_k > 0:
+        # outside the top k of a list holding at least k tokens: ranked below k for sure
+        return True if len(own_ids) >= settings.top_k else None
+    if settings.top_p < 1.0 and float(np.exp(own_lp).sum()) >= settings.top_p:
+        return True  # the nucleus closed inside the reported list and excludes the sample
+    if settings.min_p > 0.0 and sampled in reported:
+        return True
+    return None
 
 
 def describe(case: CaseState) -> str:
@@ -145,7 +195,9 @@ def describe(case: CaseState) -> str:
 class SamplerProbe(Probe):
     id = "sampler.conformance"
     family = "sampler"
-    version = "2"  # v2: top_p placed per context away from cumulative-mass boundaries
+    # v2: top_p placed per context away from cumulative-mass boundaries
+    # v3: support violations judged on each response's own reported distribution
+    version = "3"
 
     async def run(self, ctx: ProbeContext) -> ProbeResult:
         caps = ctx.adapter.capabilities
@@ -228,13 +280,22 @@ class SamplerProbe(Probe):
                 per_prompt.append((p, exp, ps))
             if not per_prompt:
                 continue
-            case = CaseState(c["id"], settings, per_prompt, counts=[{} for _ in per_prompt])
+            case = CaseState(
+                c["id"],
+                settings,
+                per_prompt,
+                counts=[{} for _ in per_prompt],
+                g_obs=[{} for _ in per_prompt],
+                g_exp=[{} for _ in per_prompt],
+            )
             truncating = settings.top_k > 0 or settings.top_p < 1.0
             case.detect_rate = (
                 float(np.mean([e.tail_mass for _, e, _s in per_prompt])) if truncating else 0.0
             )
             cases.append(case)
 
+        # every sampling request also returns its own distribution (see own_support_violation)
+        report_k = min(caps.max_top_k, int(ctx.options.get("sampler_report_k", 50)))
         n_tests = max(1, 2 * len(cases) * len(looks))
         alpha_each = ctx.alpha / n_tests
 
@@ -256,7 +317,7 @@ class SamplerProbe(Probe):
                     case,
                     pi,
                     ctx.adapter.next_token(
-                        ctx.client, ctx.model, ps.ids, top_k=1, sampling=st.api_params()
+                        ctx.client, ctx.model, ps.ids, top_k=report_k, sampling=st.api_params()
                     ),
                 )
                 for case in active
@@ -272,8 +333,17 @@ class SamplerProbe(Probe):
                     or res.positions[0].token_id is None
                 ):
                     continue
-                tok = res.positions[0].token_id
-                case.counts[pi][tok] = case.counts[pi].get(tok, 0) + 1
+                pos = res.positions[0]
+                if pos.token_id is None:
+                    continue
+                own = [t for t in pos.top if t.token_id is not None]
+                record_sample(
+                    case,
+                    pi,
+                    pos.token_id,
+                    np.array([t.token_id for t in own], dtype=np.int64),
+                    np.array([t.logprob for t in own]),
+                )
             drawn = target_n
             last = look_i == len(looks) - 1
             for case in active:

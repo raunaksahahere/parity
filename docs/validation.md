@@ -73,6 +73,33 @@ with a different seed.
 ## Results
 
 <!-- TABLES:BEGIN -->
+### False positives on correct deployments (controls)
+
+Nominal familywise alpha: 0.05. Observed false-positive rate over all control runs: **0/23** (95% CI 0.0-14.8%).
+
+| Control | Runs | PASS | INCONCLUSIVE | DEVIATION | Probe false flags | Median requests | Median seconds |
+|---|---:|---:|---:|---:|---|---:|---:|
+| control-cpu-p1-t4 | 3 | 3 | 0 | 0 | none | 6859 | 659 |
+| control-gpu-p1-smallbatch | 10 | 10 | 0 | 0 | none | 6859 | 155 |
+| control-gpu-p2 | 10 | 10 | 0 | 0 | none | 6859 | 106 |
+
+### Detection of injected faults
+
+Each probe cell: repetitions in which the probe returned DEVIATION (after Holm).
+
+| Fault | Reps | Detected (verdict DEVIATION) | template | longctx | tools | greedy | distribution | sampler | Median requests (full suite) | Median requests to detection (--fail-fast) | Median seconds (full suite) |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| fault-template-nosystem | 3 | 3/3 (100%, 95% CI 29-100%) | 3/3 | 3/3 | 0/3 | 0/3 | 0/3 | 0/3 | 6859 | 7 | 136 |
+| fault-template-llama3 | 3 | 3/3 (100%, 95% CI 29-100%) | 3/3 | 3/3 | 0/3 | 0/3 | 0/3 | 0/3 | 7359 | 7 | 118 |
+| fault-topk-ignored | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 5259 | 5259 | 122 |
+| fault-topp-ignored | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 6559 | 6559 | 132 |
+| fault-temperature-ignored | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 3/3 | 0/3 | 3/3 | 4959 | 52 | 108 |
+| fault-temperature-x1.5 | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 2759 | 2759 | 74 |
+| fault-silent-truncation | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 3/3 | 0/3 | 0/3 | 0/3 | 0/3 | 7359 | 16 | 148 |
+| fault-ctx-reduced | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 3/3 | 0/3 | 0/3 | 0/3 | 0/3 | 6859 | 16 | 118 |
+| fault-quant-q2_k | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 3/3 | 3/3 | 1/3 | 3359 | 52 | 80 |
+| fault-quant-q4_k_m | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 3/3 | 3/3 | 0/3 | 6359 | 52 | 81 |
+| fault-quant-q8_0 | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 0/3 | 6859 | 355 | 88 |
 <!-- TABLES:END -->
 
 ## Interpretation
@@ -91,6 +118,33 @@ v2 places `top_p` per context away from cumulative-mass boundaries (decision D11
 test reproduces the situation.
 
 <!-- TABLES_V1:BEGIN -->
+### False positives on correct deployments (controls)
+
+Nominal familywise alpha: 0.05. Observed false-positive rate over all control runs: **0/23** (95% CI 0.0-14.8%).
+
+| Control | Runs | PASS | INCONCLUSIVE | DEVIATION | Probe false flags | Median requests | Median seconds |
+|---|---:|---:|---:|---:|---|---:|---:|
+| control-cpu-p1-t4 | 3 | 3 | 0 | 0 | none | 6859 | 682 |
+| control-gpu-p1-smallbatch | 10 | 10 | 0 | 0 | none | 6859 | 143 |
+| control-gpu-p2 | 10 | 10 | 0 | 0 | none | 7359 | 104 |
+
+### Detection of injected faults
+
+Each probe cell: repetitions in which the probe returned DEVIATION (after Holm).
+
+| Fault | Reps | Detected (verdict DEVIATION) | template | longctx | tools | greedy | distribution | sampler | Median requests (full suite) | Median requests to detection (--fail-fast) | Median seconds (full suite) |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| fault-template-nosystem | 3 | 3/3 (100%, 95% CI 29-100%) | 3/3 | 3/3 | 0/3 | 0/3 | 0/3 | 0/3 | 6859 | 7 | 142 |
+| fault-template-llama3 | 3 | 3/3 (100%, 95% CI 29-100%) | 3/3 | 3/3 | 0/3 | 0/3 | 0/3 | 0/3 | 6859 | 7 | 128 |
+| fault-topk-ignored | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 5259 | 5259 | 188 |
+| fault-topp-ignored | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 6559 | 6559 | 169 |
+| fault-temperature-ignored | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 3/3 | 0/3 | 3/3 | 4959 | 52 | 147 |
+| fault-temperature-x1.5 | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 0/3 | 0/3 | 3/3 | 3559 | 3559 | 81 |
+| fault-silent-truncation | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 3/3 | 0/3 | 0/3 | 0/3 | 0/3 | 6859 | 16 | 139 |
+| fault-ctx-reduced | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 3/3 | 0/3 | 0/3 | 0/3 | 0/3 | 6859 | 16 | 118 |
+| fault-quant-q2_k | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 3/3 | 3/3 | 1/3 | 2859 | 52 | 197 |
+| fault-quant-q4_k_m | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 3/3 | 3/3 | 0/3 | 6859 | 52 | 122 |
+| fault-quant-q8_0 | 3 | 3/3 (100%, 95% CI 29-100%) | 0/3 | 0/3 | 0/3 | 2/3 | 3/3 | 0/3 | 6371 | 64 | 78 |
 <!-- TABLES_V1:END -->
 
 ## Limits of this study

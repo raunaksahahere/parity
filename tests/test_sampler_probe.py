@@ -130,3 +130,32 @@ async def test_top_p_case_with_a_jittery_cutoff_is_skipped_not_flagged(
     # and an ignored top_p is still caught with the per-context placement
     buggy = await run(toy_kit, FakeSamplerServer(prompts, seed=22, honor_top_p=False))
     assert any("top_p" in f.message for f in buggy.findings if f.severity == "deviation")
+
+
+async def test_request_to_request_jitter_is_not_mistaken_for_a_sampler_bug(
+    toy_kit: TokenizerKit,
+) -> None:
+    """Regression from the second validation run: on a Q2_K server the log-probs jittered by
+    ~0.06 nats between identical requests, and a top_k=5 boundary flipped (2% 'violations').
+    v3 judges each sample against its own response's distribution."""
+    for seed in (31, 32, 33):
+        res = await run(toy_kit, make_server(toy_kit, seed=seed, jitter=0.12))
+        assert res.status is Status.PASS, [f.message for f in res.findings]
+    buggy = await run(toy_kit, make_server(toy_kit, seed=34, jitter=0.12, honor_top_k=False))
+    assert any("top_k" in f.message for f in buggy.findings if f.severity == "deviation")
+
+
+def test_own_support_violation_rules() -> None:
+    from parity.probes.sampler import own_support_violation
+    from parity.stats.sampling import SamplerSettings
+
+    ids = np.array([10, 11, 12, 13])
+    lp = np.log(np.array([0.4, 0.3, 0.2, 0.05]))
+    k2 = SamplerSettings(top_k=2)
+    assert own_support_violation(10, ids, lp, k2) is False
+    assert own_support_violation(12, ids, lp, k2) is True  # rank 3 in its own response
+    assert own_support_violation(99, ids, lp, k2) is True  # not even reported: rank > 4
+    assert own_support_violation(99, ids[:1], lp[:1], k2) is None  # list too short to tell
+    p = SamplerSettings(top_p=0.65)
+    assert own_support_violation(12, ids, lp, p) is True  # nucleus {10, 11} closes in-list
+    assert own_support_violation(99, ids[:1], lp[:1], p) is None  # 0.4 < 0.65: not closed

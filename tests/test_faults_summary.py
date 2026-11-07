@@ -64,3 +64,11 @@ def test_fail_fast_requests_stop_at_the_first_deviating_probe() -> None:
     r = row("f", "fault", 0, "DEVIATION", ["greedy.agreement", "tools.structured"])
     assert fail_fast_requests(r) == 30  # template + distribution + greedy
     assert fail_fast_requests(row("c", "control", 0, "PASS", [])) == 60
+
+
+def test_subset_runs_keep_each_probe_s_full_suite_alpha_share() -> None:
+    from parity.faults.study import subset_alpha
+
+    assert subset_alpha(None) == 0.05
+    assert subset_alpha(["sampler.conformance"]) == 0.05 / 4  # same share as in the full suite
+    assert subset_alpha(["sampler.conformance", "greedy.agreement"]) == 0.05 / 2
