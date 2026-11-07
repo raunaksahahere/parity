@@ -42,6 +42,9 @@ parity run --model Qwen/Qwen3-0.6B --target http://localhost:8081 --served-model
 echo $?     # 0 pass, 1 deviation detected, 2 inconclusive or error
 ```
 
+Memory: a cold run loads the fp32 reference on the CPU (Qwen3-0.6B peaked at 4.4 GB RSS for
+the whole `parity run` on the test laptop); later runs reuse the on-disk reference cache.
+
 Open `parity-runs/<run-id>/report.html`. Python API:
 
 ```python
@@ -128,6 +131,8 @@ A report is evidence about *behaviour on these probes*, not a certificate.
   [baseline noise](docs/baseline-noise.md), [decisions](docs/decisions.md)
 * [Adding a probe](docs/adding-probes.md), [contributing](CONTRIBUTING.md), [changelog](CHANGELOG.md)
 * Sample report from the validation study (Q4_K_M flagged): [HTML](docs/sample-report-deviation.html), [Markdown](docs/sample-report-deviation.md)
+* Sample report of a correct deployment (BF16, calibrated): [HTML](docs/sample-report-pass.html), [Markdown](docs/sample-report-pass.md)
+* Terminal demo (honest BF16 server vs Q2_K, recorded from real runs): [docs/demo.cast](docs/demo.cast) (play with `asciinema play docs/demo.cast`), script [docs/demo.sh](docs/demo.sh)
 * CLI: `parity run | report | calibrate | list-probes | history | canary | inject-faults`
 * **Upgrade gates:** the repository is a GitHub Action ([action.yml](action.yml),
   [example](docs/examples/upgrade-gate.yml)); a [Dockerfile](Dockerfile) is included.
