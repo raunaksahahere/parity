@@ -14,18 +14,16 @@
       peak RSS 4.4 GB with a cold reference cache)
 - [x] 11. Documentation (README with quickstart, results and limits; methodology; validation;
       adding-probes; CONTRIBUTING; CHANGELOG; demo cast recorded from real runs; sample reports)
-- [ ] 12. Release prep (v0.1.0)
+- [x] 12. Release prep (v0.1.0)
 
-## Resuming
+## Reproducing
 
-* Validation study (resumable, skips finished repetitions):
-  `PYTHONUNBUFFERED=1 setsid nohup uv run parity inject-faults run --out runs/validation >> runs/validation/study.log 2>&1 &`
-  Calibration is in `runs/validation/calibration.json` (copied to `docs/data/`); results append
-  to `runs/validation/results.jsonl`.
-* After the study: `cp runs/validation/results.jsonl docs/data/validation-results.jsonl`,
-  `uv run python scripts/update_result_docs.py runs/validation`, then write the interpretation
-  section of `docs/validation.md` from the generated tables.
-* Demo: start BF16 (port 8081) and Q2_K (port 8082) servers, then
-  `uv run python scripts/record_cast.py docs/demo.cast -- bash docs/demo.sh`.
+* Validation study: `parity inject-faults run --out runs/validation` (resumable; `--probes`,
+  `--cooldown`, `--concurrency` for subset runs and hot laptops), then
+  `uv run python scripts/update_result_docs.py --main runs/validation-v2 --v1 runs/validation
+  --sampler runs/validation-sampler-v3` to regenerate the tables.
+* Demo: start BF16 (port 8081) and Q2_K (port 8082) llama.cpp servers, then
+  `python scripts/record_cast.py docs/demo.cast -- bash docs/demo.sh`.
 * Local assets (gitignored): `bin/` (llama.cpp b12128 Vulkan + CPU), `models/` (HF weights,
-  GGUFs). pip on this machine is configured with `user=true`; use `PIP_USER=0` inside venvs.
+  GGUFs, see docs/decisions.md D4). On this machine pip is configured with `user=true`; use
+  `PIP_USER=0` inside venvs.
