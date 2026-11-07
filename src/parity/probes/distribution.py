@@ -32,7 +32,7 @@ from parity.probes.base import Finding, Probe, ProbeContext, ProbeResult, Status
 from parity.schema import PositionLogprobs
 from parity.stats.bootstrap import cluster_bootstrap_mean
 from parity.stats.kl import truncated_kl
-from parity.suites import load_corpus
+from parity.suites import DEFAULT_SUITE, load_corpus
 
 DEFAULT_KL_THRESHOLD = 2e-3  # nats; replaced by a calibrated value when available
 
@@ -86,7 +86,8 @@ class DistributionProbe(Probe):
         threshold = float(opts.get("thresholds", {}).get("kl_mean", DEFAULT_KL_THRESHOLD))
 
         docs = [
-            ctx.kit.encode(d.text)[:max_tokens] for d in load_corpus(opts.get("suite", "core-v1"))
+            ctx.kit.encode(d.text)[:max_tokens]
+            for d in load_corpus(opts.get("suite", DEFAULT_SUITE))
         ]
         docs = [d for d in docs if len(d) >= 2]
         n_looks = math.ceil(len(docs) / chunk)

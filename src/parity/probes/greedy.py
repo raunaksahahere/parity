@@ -20,7 +20,7 @@ import math
 from parity.client import EndpointError
 from parity.probes.base import Finding, Probe, ProbeContext, ProbeResult, Status
 from parity.stats.sprt import BinomialSPRT, Decision
-from parity.suites import load_corpus
+from parity.suites import DEFAULT_SUITE, load_corpus
 
 DEFAULT_H0 = 0.005  # per-token benign divergence hazard; replaced by calibration
 DEFAULT_H1 = 0.025
@@ -56,7 +56,7 @@ class GreedyProbe(Probe):
         prompt_len = int(opts.get("greedy_prompt_tokens", 16))
         prompts = [
             ids
-            for d in load_corpus(opts.get("suite", "core-v1"))
+            for d in load_corpus(opts.get("suite", DEFAULT_SUITE))
             if len(ids := ctx.kit.encode(d.text)[:prompt_len]) >= 4
         ]
 

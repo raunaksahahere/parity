@@ -6,6 +6,7 @@ conditions as the run that wants to use it. All fingerprints are hex SHA-256 dig
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import platform
@@ -174,8 +175,10 @@ def suite_fingerprint(suite: str) -> str:
     return digest("suite", suite, files)
 
 
+@functools.cache
 def code_fingerprint() -> str:
-    """Digest of the installed parity package's source, data and templates."""
+    """Digest of the installed parity package's source, data and templates. Computed once per
+    process, so it describes the code that was loaded even if files change while it runs."""
     root = Path(parity.__file__).parent
     files = {
         str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()

@@ -1,65 +1,117 @@
 """Insert generated validation tables into README.md and docs/validation.md.
 
-Usage:
-  uv run python scripts/update_result_docs.py --main runs/validation-v2 \
-      [--v1 runs/validation] [--sampler runs/validation-sampler-v3]
+Every number comes from raw result files committed under docs/data; nothing is typed by hand.
 
---main is the published full study, --v1 the first run (appendix), --sampler the sampler-only
-re-validation. Numbers are never typed by hand: everything comes from results.jsonl files.
+  uv run python scripts/update_result_docs.py            # regenerate from docs/data
+  uv run python scripts/update_result_docs.py --import-study runs/v011-study \\
+      --import-fail-fast runs/v011-fail-fast            # copy raw results in first
+
+v0.1.0 (historical) tables come from docs/data/validation-results.jsonl (second full run),
+validation-v1-results.jsonl (first run) and validation-sampler-v3-results.jsonl. v0.1.1 tables
+come from docs/data/v0.1.1-*.
 """
 
 import argparse
+import json
+import shutil
+import statistics
 from pathlib import Path
 
 from parity.faults.study import load_results
 from parity.faults.summary import (
-    SAMPLER_FAULTS,
+    fail_fast_table,
     splice,
+    study_control_table,
+    study_fault_table,
+    study_readme_table,
+    study_summary,
     summarize,
     to_markdown,
-    to_readme_table,
     to_sampler_table,
 )
 
+DATA = Path("docs/data")
+STUDY = DATA / "v0.1.1-study-results.jsonl"
+FAIL_FAST = DATA / "v0.1.1-fail-fast-results.jsonl"
+DEV_TOOLS = DATA / "v0.1.1-dev-tools-probe.jsonl"
+
 ap = argparse.ArgumentParser()
-ap.add_argument("--main", type=Path, required=True)
-ap.add_argument("--v1", type=Path)
-ap.add_argument("--sampler", type=Path)
+ap.add_argument("--import-study", type=Path, help="study directory to copy raw results from")
+ap.add_argument("--import-fail-fast", type=Path, help="fail-fast study directory")
 ns = ap.parse_args()
 
-summary = summarize(load_results(ns.main / "results.jsonl"))
-sampler_note = ""
-if ns.sampler:
-    srows = load_results(ns.sampler / "results.jsonl")
-    flagged = [r["probe_status"].get("sampler.conformance") == "DEVIATION" for r in srows]
-    is_fault = [r["scenario"] in SAMPLER_FAULTS for r in srows]
-    tp = sum(f and x for f, x in zip(flagged, is_fault, strict=True))
-    fp = sum(f and not x for f, x in zip(flagged, is_fault, strict=True))
-    q2 = [f for f, r in zip(flagged, srows, strict=True) if r["scenario"] == "fault-quant-q2_k"]
-    sampler_note = (
-        f"\nThe `sampler (1/3)` on Q2_K was a misattribution by sampler v2 (numerical jitter "
-        f"between requests). Sampler v3, re-validated alone on the GPU deployments, reported "
-        f"DEVIATION on {tp}/{sum(is_fault)} sampler-fault repetitions and on {fp}/"
-        f"{len(srows) - sum(is_fault)} others, including {sum(q2)}/{len(q2)} on Q2_K.\n"
+if ns.import_study:
+    shutil.copy(ns.import_study / "results.jsonl", STUDY)
+    shutil.copy(ns.import_study / "calibration.json", DATA / "v0.1.1-calibration.json")
+    shutil.copy(ns.import_study / "study-manifest.json", DATA / "v0.1.1-study-manifest.json")
+if ns.import_fail_fast:
+    shutil.copy(ns.import_fail_fast / "results.jsonl", FAIL_FAST)
+    shutil.copy(
+        ns.import_fail_fast / "study-manifest.json", DATA / "v0.1.1-fail-fast-manifest.json"
     )
-readme = Path("README.md")
-readme.write_text(
-    splice(
-        readme.read_text(),
-        "RESULTS",
-        "## Measured results\n\n"
-        "Qwen3-0.6B on a laptop (CPU + RX 6500M), 23 correct-deployment controls and 11 injected "
-        "faults x 3 repetitions. Method, controls and caveats: "
-        "[docs/validation.md](docs/validation.md).\n\n" + to_readme_table(summary) + sampler_note,
-    )
-)
+
 val = Path("docs/validation.md")
-text = splice(val.read_text(), "TABLES", to_markdown(summary))
-if ns.v1:
-    text = splice(text, "TABLES_V1", to_markdown(summarize(load_results(ns.v1 / "results.jsonl"))))
-if ns.sampler:
-    text = splice(
-        text, "TABLES_SAMPLER_V3", to_sampler_table(load_results(ns.sampler / "results.jsonl"))
+text = val.read_text()
+
+# -- v0.1.0 (historical, unchanged data) --------------------------------------------------------
+text = splice(
+    text, "TABLES", to_markdown(summarize(load_results(DATA / "validation-results.jsonl")), "####")
+)
+v1 = summarize(load_results(DATA / "validation-v1-results.jsonl"))
+text = splice(text, "TABLES_V1", to_markdown(v1, "####"))
+srows = load_results(DATA / "validation-sampler-v3-results.jsonl")
+text = splice(text, "TABLES_SAMPLER_V3", to_sampler_table(srows))
+
+# -- v0.1.1 ----------------------------------------------------------------------------------
+readme_body = None
+if STUDY.exists():
+    rows = load_results(STUDY)
+    s = study_summary(rows)
+    ff_rows = load_results(FAIL_FAST)
+    measured = {
+        name: statistics.median(r["requests"] for r in ff_rows if r["scenario"] == name)
+        for name in {r["scenario"] for r in ff_rows}
+    }
+    text = splice(text, "STUDY_CONTROLS", study_control_table(s))
+    text = splice(text, "STUDY_FAULTS", study_fault_table(s, measured))
+    if ff_rows:
+        text = splice(text, "STUDY_FAIL_FAST", fail_fast_table(ff_rows, s))
+    manifest = json.loads((DATA / "v0.1.1-study-manifest.json").read_text())
+    git = manifest.get("git") or {}
+    readme_body = (
+        "## Measured results\n\n"
+        f"v0.1.1 study: Qwen3-0.6B served by llama.cpp b12128 on a laptop (RX 6500M GPU and "
+        f"CPU), {s['control_runs']} runs of {s['control_deployments']} correct deployment "
+        f"configurations and {sum(f['n'] for f in s['faults'])} runs of "
+        f"{len({f['name'].removesuffix('-cpu') for f in s['faults']})} injected faults, code "
+        "frozen at "
+        f"`{git.get('commit', 'unknown')[:12]}`. Method, controls and caveats: "
+        "[docs/validation.md](docs/validation.md).\n\n"
+        + study_readme_table(s, measured)
+        + "\n<sub>Requests to detection are medians of real `--fail-fast` runs; * marks a value "
+        "inferred from full runs. Simulation: *real* is a real server setting, *request* a proxy "
+        "rewriting requests, *response* a proxy corrupting responses.</sub>\n"
     )
+if DEV_TOOLS.exists():
+    dev = load_results(DEV_TOOLS)
+    lines = [
+        "| Development run | Tools probe | Deterministic | Trigger disagreements | Invalid where "
+        "reference valid | tool_choice=none violations | JSON invalid (finish stop) | Requests |",
+        "|---|---|:-:|---:|---:|---:|---:|---:|",
+    ]
+    for r in dev:
+        m = r["metrics"]
+        lines.append(
+            f"| {r['fault']} | {r['status']} | {'yes' if r['hard_evidence'] else ''} "
+            f"| {m.get('trigger_disagreements', 0):.0f}/{m.get('trigger_prompts', 0):.0f} "
+            f"| {m.get('invalid_where_reference_valid', 0):.0f} "
+            f"| {m.get('tool_choice_none_violations', 0):.0f} "
+            f"| {m.get('json_invalid_with_stop', 0):.0f} | {r['requests']} |"
+        )
+    text = splice(text, "DEV_TOOLS", "\n".join(lines) + "\n")
 val.write_text(text)
-print("updated README.md and docs/validation.md")
+
+if readme_body is not None:
+    readme = Path("README.md")
+    readme.write_text(splice(readme.read_text(), "RESULTS", readme_body))
+print("updated docs/validation.md" + (" and README.md" if readme_body else ""))

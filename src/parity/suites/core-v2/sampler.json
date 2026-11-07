@@ -1,0 +1,18 @@
+{
+  "version": "core-v1",
+  "prompts": [
+    "My favorite thing about summer is",
+    "A random animal that lives in the forest:",
+    "Once upon a time, in a village by the sea, there lived",
+    "The most surprising fact I learned this week was that"
+  ],
+  "cases": [
+    {"id": "neutral", "temperature": 1.0, "top_k": 0, "top_p": 1.0},
+    {"id": "temp-0.7", "temperature": 0.7, "top_k": 0, "top_p": 1.0},
+    {"id": "temp-1.4", "temperature": 1.4, "top_k": 0, "top_p": 1.0},
+    {"id": "top-k-5", "temperature": 1.0, "top_k": 5, "top_p": 1.0},
+    {"id": "top-k-1", "temperature": 1.0, "top_k": 1, "top_p": 1.0},
+    {"id": "top-p-0.6", "temperature": 1.0, "top_k": 0, "top_p": 0.6},
+    {"id": "temp-0.7-top-k-10", "temperature": 0.7, "top_k": 10, "top_p": 1.0}
+  ]
+}

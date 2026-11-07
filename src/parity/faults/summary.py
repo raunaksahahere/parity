@@ -81,10 +81,10 @@ def summarize(rows: list[dict[str, Any]], alpha: float = 0.05) -> dict[str, Any]
             "control_false_positives": ctrl_fp, "alpha": alpha}  # fmt: skip
 
 
-def to_markdown(summary: dict[str, Any]) -> str:
+def to_markdown(summary: dict[str, Any], heading: str = "###") -> str:
     out: list[str] = []
     n, fp = summary["control_runs"], summary["control_false_positives"]
-    out += ["### False positives on correct deployments (controls)", ""]
+    out += [f"{heading} False positives on correct deployments (controls)", ""]
     if n:
         lo, hi = clopper_pearson(fp, n)
         out += [
@@ -104,7 +104,7 @@ def to_markdown(summary: dict[str, Any]) -> str:
     header = " | ".join(SHORT[p] for p in PROBES)
     out += [
         "",
-        "### Detection of injected faults",
+        f"{heading} Detection of injected faults",
         "",
         "Each probe cell: repetitions in which the probe returned DEVIATION (after Holm).",
         "",
@@ -193,3 +193,224 @@ def to_sampler_table(rows: list[dict[str, Any]]) -> str:
             f"{statistics.median(r['seconds'] for r in rs):.0f} |"
         )
     return "\n".join(out) + "\n"
+
+
+# -- v0.1.1 study tables --------------------------------------------------------------------------
+
+ALL_PROBES = PROBES
+
+
+def _med(values: list[float | None]) -> float | None:
+    vals = [v for v in values if v is not None]
+    return statistics.median(vals) if vals else None
+
+
+def _fmt_s(secs: float | None) -> str:
+    if secs is None:
+        return "n/a"
+    return f"{secs:.0f} s" if secs < 120 else f"{secs / 60:.1f} min"
+
+
+def _fmt_mb(mb: float | None) -> str:
+    return "n/a" if mb is None else f"{mb / 1024:.1f} GB" if mb >= 1024 else f"{mb:.0f} MB"
+
+
+def _ci(k: int, n: int) -> str:
+    lo, hi = clopper_pearson(k, n)
+    return f"{100 * lo:.0f}-{100 * hi:.0f}%"
+
+
+def base_fault(name: str) -> str:
+    return name.removesuffix("-cpu")
+
+
+def study_summary(rows: list[dict[str, Any]], alpha: float = 0.05) -> dict[str, Any]:
+    """Per-scenario aggregates of a v0.1.1 study (rows from results.jsonl)."""
+    by_sc: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in rows:
+        by_sc[r["scenario"]].append(r)
+    scen: dict[str, dict[str, Any]] = {}
+    for name, rs in by_sc.items():
+        scen[name] = {
+            "name": name,
+            "kind": rs[0]["kind"],
+            "backend": rs[0].get("backend", "gpu"),
+            "simulation": rs[0].get("simulation", "real"),
+            "fresh": bool(rs[0].get("fresh")),
+            "n": len(rs),
+            "seeds": sorted(r.get("seed", r["rep"]) for r in rs),
+            "pass": sum(r["verdict"] == "PASS" for r in rs),
+            "inconclusive": sum(r["verdict"] == "INCONCLUSIVE" for r in rs),
+            "deviation": sum(r["verdict"] == "DEVIATION" for r in rs),
+            "probe_dev": {p: sum(r["probe_status"].get(p) == "DEVIATION" for r in rs)
+                          for p in ALL_PROBES},
+            "probe_inc": {p: sum(r["probe_status"].get(p) == "INCONCLUSIVE" for r in rs)
+                          for p in ALL_PROBES},
+            "median_requests": _med([r["requests"] for r in rs]),
+            "median_fail_fast_inferred": _med([fail_fast_requests(r) for r in rs]),
+            "median_seconds": _med([r["seconds"] for r in rs]),
+            "median_parity_rss_mb": _med([r.get("parity_peak_rss_mb") for r in rs]),
+            "max_parity_rss_mb": max((r.get("parity_peak_rss_mb") or 0 for r in rs), default=0)
+            or None,
+            "median_server_rss_mb": _med([r.get("server_peak_rss_mb") for r in rs]),
+        }  # fmt: skip
+    controls = [s for s in scen.values() if s["kind"] == "control"]
+    faults = [s for s in scen.values() if s["kind"] == "fault"]
+    return {
+        "alpha": alpha,
+        "scenarios": scen,
+        "controls": controls,
+        "faults": faults,
+        "control_runs": sum(c["n"] for c in controls),
+        "control_fp": sum(c["deviation"] for c in controls),
+        "control_inconclusive": sum(c["inconclusive"] for c in controls),
+        "control_deployments": len(controls),
+        "control_deployments_with_fp": sum(c["deviation"] > 0 for c in controls),
+    }
+
+
+def study_control_table(s: dict[str, Any]) -> str:
+    n, fp, inc = s["control_runs"], s["control_fp"], s["control_inconclusive"]
+    k, kfp = s["control_deployments"], s["control_deployments_with_fp"]
+    fresh = [c for c in s["controls"] if c["fresh"]]
+    fresh_n = sum(c["n"] for c in fresh)
+    fresh_fp = sum(c["deviation"] for c in fresh)
+    out = [
+        f"**False positives: {fp}/{n} runs** (95% CI {_ci(fp, n)}; nominal familywise alpha "
+        f"{s['alpha']}), from **{k} independent correct deployment configurations** "
+        f"({kfp}/{k} with any false positive, 95% CI {_ci(kfp, k)}). INCONCLUSIVE: {inc}/{n} "
+        f"runs. Fresh held-out configurations alone: {fresh_fp}/{fresh_n} runs over "
+        f"{len(fresh)} configurations.",
+        "",
+        "Runs of one configuration repeat the suite with different seeds against the same "
+        "server process; they are not independent deployments.",
+        "",
+        "| Control | Backend | Fresh | Seeds | PASS | INCONCLUSIVE | DEVIATION | Probe flags "
+        "| Probe INCONCLUSIVE | Median requests | Median time | Peak RSS parity / server |",
+        "|---|---|:-:|---:|---:|---:|---:|---|---|---:|---:|---|",
+    ]
+    for c in sorted(s["controls"], key=lambda c: (c["backend"], not c["fresh"], c["name"])):
+        flags = ", ".join(f"{SHORT[p]} {v}" for p, v in c["probe_dev"].items() if v) or "none"
+        incs = ", ".join(f"{SHORT[p]} {v}" for p, v in c["probe_inc"].items() if v) or "none"
+        out.append(
+            f"| {c['name']} | {c['backend'].upper()} | {'yes' if c['fresh'] else ''} | {c['n']} "
+            f"| {c['pass']} | {c['inconclusive']} | {c['deviation']} | {flags} | {incs} "
+            f"| {c['median_requests']:.0f} | {_fmt_s(c['median_seconds'])} "
+            f"| {_fmt_mb(c['max_parity_rss_mb'])} / {_fmt_mb(c['median_server_rss_mb'])} |"
+        )
+    return "\n".join(out) + "\n"
+
+
+def study_fault_table(s: dict[str, Any], measured_ff: dict[str, float] | None = None) -> str:
+    """One row per fault: GPU and CPU deployments side by side, per-probe attribution."""
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for f in s["faults"]:
+        groups[base_fault(f["name"])].append(f)
+    header = " | ".join(SHORT[p] for p in ALL_PROBES)
+    out = [
+        "Detected = runs with verdict DEVIATION. Probe cells: runs in which that probe returned "
+        "DEVIATION (after Holm), GPU and CPU runs together. Inconclusive runs are counted, not "
+        "hidden.",
+        "",
+        f"| Fault | Simulation | GPU detected | CPU detected | INCONCLUSIVE | {header} "
+        "| Median requests (full) | Requests to detection (--fail-fast) | Median time (full) |",
+        "|---|---|---|---|---:|" + "---:|" * len(ALL_PROBES) + "---:|---:|---:|",
+    ]
+    for name, fs in groups.items():
+        gpu = next((f for f in fs if f["backend"] == "gpu"), None)
+        cpu = next((f for f in fs if f["backend"] == "cpu"), None)
+
+        def det(f: dict[str, Any] | None) -> str:
+            if f is None:
+                return "not run"
+            return f"{f['deviation']}/{f['n']} ({_ci(f['deviation'], f['n'])})"
+
+        n_all = sum(f["n"] for f in fs)
+        cells = " | ".join(f"{sum(f['probe_dev'][p] for f in fs)}/{n_all}" for p in ALL_PROBES)
+        ff_inferred = _med([f["median_fail_fast_inferred"] for f in fs if f["backend"] == "gpu"])
+        ff = (
+            f"{measured_ff[name]:.0f} measured"
+            if measured_ff and name in measured_ff
+            else f"{ff_inferred:.0f} inferred"
+            if ff_inferred is not None
+            else "n/a"
+        )
+        main = gpu or cpu
+        assert main is not None
+        out.append(
+            f"| {name.removeprefix('fault-')} | {main['simulation']} | {det(gpu)} | {det(cpu)} "
+            f"| {sum(f['inconclusive'] for f in fs)} | {cells} "
+            f"| {main['median_requests']:.0f} | {ff} | {_fmt_s(main['median_seconds'])} |"
+        )
+    return "\n".join(out) + "\n"
+
+
+def fail_fast_table(ff_rows: list[dict[str, Any]], full: dict[str, Any]) -> str:
+    """Real --fail-fast runs next to the request count inferred from the full-suite runs."""
+    by_sc: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in ff_rows:
+        by_sc[r["scenario"]].append(r)
+    out = [
+        "| Scenario | Runs | Verdicts | First deviating probe | Measured requests (median, "
+        "range) | Inferred from full runs | Measured time |",
+        "|---|---:|---|---|---:|---:|---:|",
+    ]
+    for name, rs in by_sc.items():
+        verdicts = ", ".join(
+            f"{v} {sum(r['verdict'] == v for r in rs)}"
+            for v in ("DEVIATION", "INCONCLUSIVE", "PASS")
+            if any(r["verdict"] == v for r in rs)
+        )
+        first = {
+            next((SHORT[p] for p in PROBES if r["probe_status"].get(p) == "DEVIATION"), "none")
+            for r in rs
+        }
+        req = [r["requests"] for r in rs]
+        inferred = full["scenarios"].get(name, {}).get("median_fail_fast_inferred")
+        out.append(
+            f"| {name} | {len(rs)} | {verdicts} | {', '.join(sorted(first))} "
+            f"| {statistics.median(req):.0f} ({min(req)}-{max(req)}) "
+            f"| {'n/a' if inferred is None else f'{inferred:.0f}'} "
+            f"| {_fmt_s(statistics.median(r['seconds'] for r in rs))} |"
+        )
+    return "\n".join(out) + "\n"
+
+
+def study_readme_table(s: dict[str, Any], measured_ff: dict[str, float] | None = None) -> str:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for f in s["faults"]:
+        groups[base_fault(f["name"])].append(f)
+    n, fp = s["control_runs"], s["control_fp"]
+    lines = [
+        f"False positives on correct deployments: **{fp}/{n} runs** (95% CI {_ci(fp, n)}) over "
+        f"{s['control_deployments']} independent configurations, {s['control_inconclusive']} "
+        "inconclusive.\n",
+        "| Injected fault | Simulation | Detected (GPU · CPU) | Flagged by | Requests to "
+        "detection (fail-fast) | Full-suite requests | Full-suite time |",
+        "|---|---|---|---|---:|---:|---:|",
+    ]
+    for name, fs in groups.items():
+        n_all = sum(f["n"] for f in fs)
+        flagged = {p: sum(f["probe_dev"][p] for f in fs) for p in ALL_PROBES}
+        by = (
+            ", ".join(
+                SHORT[p] if k == n_all else f"{SHORT[p]} ({k}/{n_all})"
+                for p, k in flagged.items()
+                if k
+            )
+            or "nothing"
+        )
+        det = " · ".join(
+            f"{f['deviation']}/{f['n']}" for f in sorted(fs, key=lambda f: f["backend"] != "gpu")
+        )
+        main = next((f for f in fs if f["backend"] == "gpu"), fs[0])
+        ff = (
+            f"{measured_ff[name]:.0f}"
+            if measured_ff and name in measured_ff
+            else f"{main['median_fail_fast_inferred']:.0f}*"
+        )
+        lines.append(
+            f"| {name.removeprefix('fault-')} | {main['simulation']} | {det} | {by} | {ff} "
+            f"| {main['median_requests']:.0f} | {_fmt_s(main['median_seconds'])} |"
+        )
+    return "\n".join(lines) + "\n"

@@ -106,3 +106,59 @@ def test_harness_cli_passes_every_run_option_to_the_study(monkeypatch) -> None: 
     assert code == 0 and cfg.reps == 2 and cfg.scenarios == ["fault-quant-q2_k"]
     assert cfg.probes == ["sampler.conformance"] and cfg.cooldown_s == 30 and cfg.concurrency == 2
     assert cfg.cool_to_c == 65 and cfg.seed_base == 1000 and cfg.fail_fast
+
+
+def study_row(
+    sc: str,
+    kind: str,
+    rep: int,
+    verdict: str,
+    flagged: list[str],
+    backend: str = "gpu",
+    fresh: bool = False,
+    sim: str = "real",
+) -> dict:  # type: ignore[type-arg]
+    from parity.faults.summary import PROBES
+
+    status = {p: ("DEVIATION" if p in flagged else "PASS") for p in PROBES}
+    if verdict == "INCONCLUSIVE":
+        status["greedy.agreement"] = "INCONCLUSIVE"
+    return {
+        "scenario": sc, "kind": kind, "rep": rep, "seed": 1000 + rep, "verdict": verdict,
+        "backend": backend, "fresh": fresh, "simulation": sim, "requests": 100,
+        "seconds": 90.0, "probe_status": status, "probe_requests": dict.fromkeys(PROBES, 10),
+        "parity_peak_rss_mb": 3000.0, "server_peak_rss_mb": 1500.0,
+    }  # fmt: skip
+
+
+def test_study_tables_separate_seeds_deployments_and_backends() -> None:
+    from parity.faults.summary import (
+        fail_fast_table,
+        study_control_table,
+        study_fault_table,
+        study_readme_table,
+        study_summary,
+    )
+
+    rows = [study_row("control-a", "control", r, "PASS", []) for r in range(4)]
+    rows += [study_row("heldout-b", "control", r, "PASS", [], "cpu", True) for r in range(2)]
+    rows.append(study_row("heldout-b", "control", 2, "INCONCLUSIVE", [], "cpu", True))
+    rows += [study_row("fault-x", "fault", r, "DEVIATION", ["sampler.conformance"]) for r in (0, 1)]
+    rows.append(study_row("fault-x", "fault", 2, "PASS", []))
+    rows += [study_row("fault-x-cpu", "fault", r, "DEVIATION", ["sampler.conformance"], "cpu")
+             for r in (0, 1)]  # fmt: skip
+    s = study_summary(rows)
+    assert s["control_runs"] == 7 and s["control_fp"] == 0 and s["control_inconclusive"] == 1
+    assert s["control_deployments"] == 2
+    ctrl = study_control_table(s)
+    assert "0/7 runs" in ctrl and "2 independent correct deployment configurations" in ctrl
+    assert "INCONCLUSIVE: 1/7" in ctrl and "greedy 1" in ctrl  # probe-level inconclusive shown
+    faults = study_fault_table(s)
+    assert "| x | real | 2/3 (" in faults and "| 2/2 (" in faults  # GPU and CPU side by side
+    assert "| 4/5 |" in faults  # sampler flagged in 4 of 5 runs over both backends
+    readme = study_readme_table(s, {"fault-x": 1234})
+    assert "2/3 · 2/2" in readme and "| 1234 |" in readme and "sampler (4/5)" in readme
+    ff = fail_fast_table(
+        [study_row("fault-x", "fault", 0, "DEVIATION", ["sampler.conformance"])], s
+    )
+    assert "| fault-x | 1 | DEVIATION 1 | sampler |" in ff

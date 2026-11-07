@@ -1,0 +1,41 @@
+{
+  "version": "core-v1",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get the current weather for a city.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "city": {"type": "string", "description": "City name"},
+            "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}
+          },
+          "required": ["city"]
+        }
+      }
+    }
+  ],
+  "conversations": [
+    {"id": "user-only", "kind": "plain", "messages": [{"role": "user", "content": "Hello there."}]},
+    {"id": "system-user", "kind": "system", "messages": [
+      {"role": "system", "content": "You are a terse assistant. Answer in one short sentence and never use lists."},
+      {"role": "user", "content": "Why is the sky blue?"}]},
+    {"id": "multi-turn", "kind": "multi", "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "My name is Priya."},
+      {"role": "assistant", "content": "Nice to meet you, Priya."},
+      {"role": "user", "content": "What is my name?"}]},
+    {"id": "unicode", "kind": "plain", "messages": [
+      {"role": "user", "content": "Translate to English: 今日は天気がいいですね 🌞 — and keep the emoji."}]},
+    {"id": "long-system", "kind": "system", "messages": [
+      {"role": "system", "content": "You are an assistant for a travel agency. Always greet the customer politely, confirm the destination and dates before suggesting anything, mention baggage allowances when relevant, never promise refunds, and escalate any complaint about safety to a human agent immediately."},
+      {"role": "user", "content": "I want to go to Lisbon in May."}]},
+    {"id": "tools-user", "kind": "tools", "use_tools": true, "messages": [
+      {"role": "user", "content": "What's the weather in Paris right now?"}]},
+    {"id": "tools-system", "kind": "tools", "use_tools": true, "messages": [
+      {"role": "system", "content": "Use tools when they help."},
+      {"role": "user", "content": "Is it warm in Cairo today?"}]}
+  ]
+}

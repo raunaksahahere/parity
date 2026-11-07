@@ -1,19 +1,32 @@
-"""Family 6: tool-call and structured-output conformance.
+"""Family 6: tool-call and structured-output conformance (version 2).
 
-Paired design: the same greedy prompts are sent to the target and run through the reference,
-so tests are exact binomial tests on the pairs.
+Paired design: the same greedy prompts are sent to the target and run through the reference.
 
-* Tool trigger agreement: whether the model calls a tool (24 prompts, half should trigger).
-  Disagreements with the reference are tested against a benign disagreement rate.
-* Tool-call validity: called name is one of the provided tools, arguments are valid JSON and
-  satisfy the declared parameter schema.
-* Structured output: the target is sent ``response_format=json_schema``; the reference
-  generates unconstrained. Target outputs that are invalid where the reference's are valid
-  are tested with a one-sided sign test on discordant pairs.
+Statistical evidence (Bonferroni across the three tests):
 
-Reference tool calls are parsed from the Hermes/Qwen ``<tool_call>`` markup (v0.1 supports
-that format only). Without a reference, only the absolute validity checks run and the result
-is marked lower power.
+* **Trigger agreement** (``tool_choice`` auto): does the target call a tool where the
+  reference does? Disagreements are tested against the calibrated benign disagreement rate
+  (exact binomial test). Detects, for example, dropped tool definitions.
+* **Call validity**: on prompts where both sides call a tool, a call is valid when its name was
+  provided and its arguments are JSON satisfying the declared schema. A one-sided sign test on
+  the discordant pairs (target invalid where the reference is valid vs the reverse) detects
+  corrupted names or arguments without blaming the model for its own invalid calls.
+* **Structured output**: the target is asked for ``response_format=json_schema`` (strict); the
+  reference generates unconstrained. Sign test on discordant pairs.
+
+Deterministic evidence (a conforming server cannot produce these whatever the model does):
+
+* structured ``tool_calls`` returned for a request with ``tool_choice="none"``;
+* a strict ``json_schema`` reply that finished normally (``finish_reason="stop"``) but is not
+  valid JSON for the schema;
+* raw ``<tool_call>`` markup in the content of an auto request (tool calls not parsed).
+
+``tool_choice="required"`` is reported as a capability only: llama.cpp b12128 accepts it but
+does not enforce it for Qwen3 (docs/decisions.md D15), so a missing forced call is not
+evidence of a faulty deployment.
+
+Reference tool calls are parsed from the Hermes/Qwen ``<tool_call>`` markup. Without a
+reference only the deterministic checks run and the result is marked lower power.
 """
 
 from __future__ import annotations
@@ -26,10 +39,11 @@ from scipy import stats
 
 from parity.client import EndpointError
 from parity.probes.base import Finding, Probe, ProbeContext, ProbeResult, Status
-from parity.suites import load_json
+from parity.suites import DEFAULT_SUITE, load_json
 
 DEFAULT_DISAGREEMENT = 0.10
-TOOL_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+N_TESTS = 3  # trigger agreement, call validity, structured output
+TOOL_RE = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
 TYPE_CHECKS = {
     "string": lambda v: isinstance(v, str),
     "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
@@ -59,16 +73,30 @@ def schema_ok(value: Any, schema: dict[str, Any]) -> bool:
     return True
 
 
-def parse_reference_calls(text: str) -> list[dict[str, Any]]:
-    calls = []
+def parse_reference_calls(text: str) -> list[dict[str, Any] | None]:
+    """Calls in Hermes/Qwen markup; ``None`` for a ``<tool_call>`` block that is not JSON."""
+    calls: list[dict[str, Any] | None] = []
     for m in TOOL_RE.finditer(text):
         try:
             obj = json.loads(m.group(1))
         except json.JSONDecodeError:
+            calls.append(None)
             continue
-        if isinstance(obj, dict) and "name" in obj:
-            calls.append(obj)
+        calls.append(obj if isinstance(obj, dict) and "name" in obj else None)
     return calls
+
+
+def call_valid(name: Any, arguments: Any, schemas: dict[str, dict[str, Any]]) -> bool:
+    """A call is valid if it names a provided tool and its arguments satisfy that tool's schema.
+    ``arguments`` may be a JSON string (OpenAI wire format) or an already decoded object."""
+    if name not in schemas:
+        return False
+    if isinstance(arguments, str):
+        try:
+            arguments = json.loads(arguments)
+        except json.JSONDecodeError:
+            return False
+    return schema_ok(arguments, schemas[name])
 
 
 def parse_json_text(text: str) -> Any | None:
@@ -88,134 +116,213 @@ def min_detectable(n: int, p0: float, alpha: float) -> int:
     return n + 1
 
 
+def sign_test(b: int, c: int) -> float:
+    """One-sided exact sign test: P(X >= b) for X ~ Bin(b + c, 1/2)."""
+    return float(stats.binom.sf(b - 1, b + c, 0.5)) if b else 1.0
+
+
+def _message(data: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
+    choice = (data.get("choices") or [{}])[0]
+    return choice.get("message") or {}, choice.get("finish_reason")
+
+
 class ToolsProbe(Probe):
     id = "tools.structured"
     family = "tools"
+    version = "2"
 
     async def run(self, ctx: ProbeContext) -> ProbeResult:
         opts = ctx.options
-        spec = load_json(opts.get("suite", "core-v1"), "tools.json")
+        spec = load_json(opts.get("suite", DEFAULT_SUITE), "tools.json")
         tools = spec["tools"]
         schemas = {t["function"]["name"]: t["function"]["parameters"] for t in tools}
         tkw = dict(opts.get("template_kwargs", {"enable_thinking": False}))
         d0 = float(opts.get("thresholds", {}).get("tool_disagreement", DEFAULT_DISAGREEMENT))
-        prompts = [(p, True) for p in spec["trigger_prompts"]] + [
-            (p, False) for p in spec["plain_prompts"]
-        ]
+        max_tokens = int(spec.get("max_tokens", 160))
+        alpha_test = ctx.alpha / N_TESTS
+        has_ref = ctx.reference is not None
         n_requests = 0
         findings: list[Finding] = []
         notes: list[str] = []
+        hard: list[str] = []
+        metrics: dict[str, float] = {}
 
+        async def chat(msgs: list[dict[str, Any]], **params: Any) -> dict[str, Any]:
+            nonlocal n_requests
+            n_requests += 1
+            return await ctx.client.chat(
+                ctx.model,
+                msgs,
+                max_tokens=params.pop("max_tokens", max_tokens),
+                temperature=0.0,
+                chat_template_kwargs=tkw,
+                **params,
+            )
+
+        def failed(exc: EndpointError, what: str) -> ProbeResult:
+            return self.result(
+                Status.INCONCLUSIVE,
+                n_requests=n_requests,
+                findings=[Finding(severity="warn", message=f"{what} request failed: {exc}")],
+            )
+
+        # -- 1. tool_choice auto: trigger agreement and call validity ------------------------
+        prompts = list(spec["trigger_prompts"]) + list(spec["plain_prompts"])
         tgt_trigger: list[bool] = []
         ref_trigger: list[bool] = []
-        calls_total = bad_name = bad_args = raw_markup = 0
-        for text, _ in prompts:
+        tgt_valid: list[bool | None] = []  # None: no call
+        ref_valid: list[bool | None] = []
+        calls_total = bad_calls = raw_markup = 0
+        for text in prompts:
             msgs = [{"role": "user", "content": text}]
             try:
-                n_requests += 1
-                data = await ctx.client.chat(
-                    ctx.model,
-                    msgs,
-                    tools=tools,
-                    max_tokens=160,
-                    temperature=0.0,
-                    chat_template_kwargs=tkw,
-                )
+                data = await chat(msgs, tools=tools)
             except EndpointError as exc:
-                return self.result(
-                    Status.INCONCLUSIVE,
-                    n_requests=n_requests,
-                    findings=[Finding(severity="warn", message=f"tool request failed: {exc}")],
-                )
-            msg = (data.get("choices") or [{}])[0].get("message") or {}
+                return failed(exc, "tool")
+            msg, _ = _message(data)
             tcs = msg.get("tool_calls") or []
             if "<tool_call>" in (msg.get("content") or ""):
                 raw_markup += 1
             tgt_trigger.append(bool(tcs))
-            for tc in tcs:
-                calls_total += 1
-                fn = tc.get("function", {})
-                if fn.get("name") not in schemas:
-                    bad_name += 1
-                    continue
-                try:
-                    args = json.loads(fn.get("arguments") or "")
-                except json.JSONDecodeError:
-                    bad_args += 1
-                    continue
-                if not schema_ok(args, schemas[fn["name"]]):
-                    bad_args += 1
+            valid = [
+                call_valid((tc.get("function") or {}).get("name"),
+                           (tc.get("function") or {}).get("arguments") or "", schemas)
+                for tc in tcs
+            ]  # fmt: skip
+            calls_total += len(valid)
+            bad_calls += valid.count(False)
+            tgt_valid.append(all(valid) if valid else None)
             if ctx.reference is not None:
                 ids = ctx.kit.chat_token_ids(msgs, tools=tools, **tkw)
-                ref_text = ctx.kit.decode(ctx.reference.greedy(ids, 160))
-                ref_trigger.append(bool(parse_reference_calls(ref_text)))
+                ref_text = ctx.kit.decode(ctx.reference.greedy(ids, max_tokens))
+                ref_calls = parse_reference_calls(ref_text)
+                ref_trigger.append(bool(ref_calls))
+                rv = [c is not None and call_valid(c["name"], c.get("arguments"), schemas)
+                      for c in ref_calls]  # fmt: skip
+                ref_valid.append(all(rv) if rv else None)
 
-        metrics: dict[str, float] = {
-            "tool_calls": float(calls_total),
-            "invalid_tool_name": float(bad_name),
-            "invalid_arguments": float(bad_args),
-            "raw_tool_markup_in_content": float(raw_markup),
-            "target_trigger_rate": sum(tgt_trigger) / len(tgt_trigger),
-        }
+        metrics.update(
+            tool_calls=float(calls_total),
+            invalid_tool_calls=float(bad_calls),
+            raw_tool_markup_in_content=float(raw_markup),
+            target_trigger_rate=sum(tgt_trigger) / len(tgt_trigger),
+        )
         p_values: list[float] = []
-        hard: list[str] = []
         if raw_markup:
             hard.append(
-                f"{raw_markup} responses contain raw <tool_call> markup instead of structured "
-                "tool_calls (tool parsing is not enabled or the template differs)"
+                f"{raw_markup} responses to auto tool requests contain raw <tool_call> markup "
+                "instead of structured tool_calls (tool parsing is not enabled or the template "
+                "differs)"
             )
-        if bad_name:
-            hard.append(f"{bad_name} of {calls_total} tool calls name a tool that was not provided")
-        if bad_args:
-            hard.append(
-                f"{bad_args} of {calls_total} tool calls have invalid or non-conforming arguments"
-            )
-
         effect = 0.0
-        if ctx.reference is not None:
+        if has_ref:
             n = len(prompts)
-            disagree = sum(a != b for a, b in zip(tgt_trigger, ref_trigger, strict=True))
-            tp = sum(a and b for a, b in zip(tgt_trigger, ref_trigger, strict=True))
-            fp = sum(a and not b for a, b in zip(tgt_trigger, ref_trigger, strict=True))
-            fn_ = sum(b and not a for a, b in zip(tgt_trigger, ref_trigger, strict=True))
+            pairs = list(zip(tgt_trigger, ref_trigger, strict=True))
+            disagree = sum(a != b for a, b in pairs)
+            tp = sum(a and b for a, b in pairs)
+            fp = sum(a and not b for a, b in pairs)
+            fn_ = sum(b and not a for a, b in pairs)
             f1 = 2 * tp / (2 * tp + fp + fn_) if (2 * tp + fp + fn_) else 1.0
             p_trig = float(stats.binom.sf(disagree - 1, n, d0)) if disagree else 1.0
             p_values.append(p_trig)
             effect = disagree / n
+            both = [(t, r) for t, r in zip(tgt_valid, ref_valid, strict=True)
+                    if t is not None and r is not None]  # fmt: skip
+            b = sum((not t) and r for t, r in both)
+            c = sum(t and not r for t, r in both)
+            p_valid = sign_test(b, c)
+            p_values.append(p_valid)
             metrics.update(
                 trigger_f1=f1,
                 trigger_disagreements=float(disagree),
                 trigger_prompts=float(n),
                 reference_trigger_rate=sum(ref_trigger) / n,
-                min_detectable_disagreements=float(min_detectable(n, d0, ctx.alpha / 2)),
+                min_detectable_disagreements=float(min_detectable(n, d0, alpha_test)),
+                paired_calls=float(len(both)),
+                invalid_where_reference_valid=float(b),
+                valid_where_reference_invalid=float(c),
             )
-            if p_trig < ctx.alpha / 2:
+            if p_trig < alpha_test:
                 findings.append(
                     Finding(
                         severity="deviation",
                         message=f"tool-trigger decisions differ from the reference on "
-                        f"{disagree}/{n} "
-                        f"prompts (F1 {f1:.2f}; benign rate {d0:g}; p={p_trig:.3g})",
+                        f"{disagree}/{n} prompts (F1 {f1:.2f}; target calls a tool on "
+                        f"{sum(tgt_trigger)}, reference on {sum(ref_trigger)}; benign rate "
+                        f"{d0:g}; p={p_trig:.3g})",
+                    )
+                )
+            if p_valid < alpha_test:
+                findings.append(
+                    Finding(
+                        severity="deviation",
+                        message=f"tool calls are invalid (unknown tool name, malformed or "
+                        f"schema-violating arguments) where the reference's are valid on {b} "
+                        f"prompts vs {c} the other way (p={p_valid:.3g})",
                     )
                 )
         else:
-            notes.append("no reference: only absolute validity checks ran (lower power)")
+            notes.append("no reference: only the deterministic checks ran (lower power)")
+            if bad_calls:
+                findings.append(
+                    Finding(
+                        severity="warn",
+                        message=f"{bad_calls} of {calls_total} tool calls are invalid (without a "
+                        "reference this cannot be told apart from the model's own mistakes)",
+                    )
+                )
 
-        # structured output: target constrained vs reference unconstrained, paired
+        # -- 2. tool_choice: "none" must never produce tool calls -----------------------------
+        none_violations = 0
+        none_prompts = list(spec.get("tool_choice_none_prompts", []))
+        for text in none_prompts:
+            try:
+                data = await chat([{"role": "user", "content": text}], tools=tools,
+                                  tool_choice="none")  # fmt: skip
+            except EndpointError as exc:
+                findings.append(Finding(severity="warn", message=f"tool_choice=none: {exc}"))
+                continue
+            msg, _ = _message(data)
+            none_violations += bool(msg.get("tool_calls"))
+        if none_prompts:
+            metrics["tool_choice_none_violations"] = float(none_violations)
+        if none_violations:
+            hard.append(
+                f'{none_violations} of {len(none_prompts)} requests with tool_choice="none" '
+                "returned tool calls (tool_choice is ignored)"
+            )
+
+        # -- 3. tool_choice: "required" (capability, not evidence) ----------------------------
+        req_prompts = list(spec.get("tool_choice_required_prompts", []))
+        honored = 0
+        for text in req_prompts:
+            try:
+                data = await chat([{"role": "user", "content": text}], tools=tools,
+                                  tool_choice="required")  # fmt: skip
+            except EndpointError:
+                continue
+            msg, _ = _message(data)
+            honored += bool(msg.get("tool_calls"))
+        if req_prompts:
+            metrics["tool_choice_required_honored"] = honored / len(req_prompts)
+            if honored < len(req_prompts):
+                notes.append(
+                    f'tool_choice="required" produced a tool call in {honored}/'
+                    f"{len(req_prompts)} requests; reported as a capability, not a deviation "
+                    "(some correct servers, e.g. llama.cpp b12128, do not enforce it)"
+                )
+
+        # -- 4. structured output -------------------------------------------------------------
         schema = spec["json_schema"]
         ok_t: list[bool] = []
         ok_r: list[bool] = []
+        broken_stop = 0
         for text in spec["json_texts"]:
-            content = spec["json_instruction"] + text
-            msgs = [{"role": "user", "content": content}]
+            msgs = [{"role": "user", "content": spec["json_instruction"] + text}]
             try:
-                n_requests += 1
-                data = await ctx.client.chat(
-                    ctx.model,
+                data = await chat(
                     msgs,
                     max_tokens=120,
-                    temperature=0.0,
-                    chat_template_kwargs=tkw,
                     response_format={
                         "type": "json_schema",
                         "json_schema": {"name": "person", "schema": schema, "strict": True},
@@ -224,40 +331,44 @@ class ToolsProbe(Probe):
             except EndpointError as exc:
                 findings.append(Finding(severity="warn", message=f"json request failed: {exc}"))
                 continue
-            out = ((data.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
-            val = parse_json_text(out)
-            ok_t.append(val is not None and schema_ok(val, schema))
+            msg, finish = _message(data)
+            val = parse_json_text(msg.get("content") or "")
+            ok = val is not None and schema_ok(val, schema)
+            ok_t.append(ok)
+            broken_stop += (not ok) and finish == "stop"
             if ctx.reference is not None:
                 ids = ctx.kit.chat_token_ids(msgs, **tkw)
                 ref_out = ctx.kit.decode(ctx.reference.greedy(ids, 120))
-                rv = parse_json_text(re.sub(r"<\|im_end\|>.*$", "", ref_out, flags=re.DOTALL))
-                ok_r.append(rv is not None and schema_ok(rv, schema))
+                ref_json = parse_json_text(re.sub(r"<\|im_end\|>.*$", "", ref_out, flags=re.DOTALL))
+                ok_r.append(ref_json is not None and schema_ok(ref_json, schema))
         if ok_t:
             metrics["json_schema_adherence"] = sum(ok_t) / len(ok_t)
+            metrics["json_invalid_with_stop"] = float(broken_stop)
+        if broken_stop:
+            hard.append(
+                f"{broken_stop} of {len(ok_t)} strict json_schema replies finished normally but "
+                "are not valid JSON for the schema (response_format is not enforced)"
+            )
         if ok_t and ok_r:
             b = sum(r and not t for t, r in zip(ok_t, ok_r, strict=True))
             c = sum(t and not r for t, r in zip(ok_t, ok_r, strict=True))
             metrics["json_reference_adherence"] = sum(ok_r) / len(ok_r)
-            p_json = float(stats.binom.sf(b - 1, b + c, 0.5)) if b + c and b else 1.0
+            p_json = sign_test(b, c)
             p_values.append(p_json)
-            if p_json < ctx.alpha / 2:
+            if p_json < alpha_test:
                 findings.append(
                     Finding(
                         severity="deviation",
-                        message=f"structured output worse than the reference: target invalid where "
-                        f"reference valid in {b} prompts vs {c} the other way (p={p_json:.3g})",
+                        message=f"structured output worse than the reference: target invalid "
+                        f"where reference valid in {b} prompts vs {c} the other way "
+                        f"(p={p_json:.3g})",
                     )
                 )
-        elif ok_t and not ok_r and sum(ok_t) < len(ok_t):
-            hard.append(
-                f"{len(ok_t) - sum(ok_t)} of {len(ok_t)} structured outputs violate the requested "
-                "schema (response_format may be ignored)"
-            )
 
         if hard:
             findings.append(Finding(severity="deviation", message="; ".join(hard)))
         deviating = any(f.severity == "deviation" for f in findings)
-        p_final = min(1.0, min(p_values) * 2) if p_values else None
+        p_final = min(1.0, min(p_values) * N_TESTS) if p_values else None
         status = Status.DEVIATION if deviating else Status.PASS
         if not findings:
             findings.append(
@@ -270,12 +381,12 @@ class ToolsProbe(Probe):
             effect=effect,
             effect_unit="tool-trigger disagreement rate",
             n_requests=n_requests,
-            power="normal" if ctx.reference is not None else "lower",
+            power="normal" if has_ref else "lower",
             metrics=metrics,
             findings=findings,
             notes=[
                 *notes,
-                "24 trigger prompts and 8 JSON prompts give limited power; "
-                "see min_detectable_disagreements",
+                f"{len(prompts)} auto prompts, {len(none_prompts)} tool_choice=none prompts, "
+                f"{len(spec['json_texts'])} JSON prompts; see min_detectable_disagreements",
             ],
         )

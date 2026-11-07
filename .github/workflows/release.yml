@@ -1,0 +1,106 @@
+# Release automation.
+#
+# * Pushing a tag v* builds the sdist and wheel, smoke-tests the wheel in a fresh virtualenv and
+#   builds and smoke-tests both Docker images. Nothing is published.
+# * Publishing is a separate, deliberate step: run this workflow manually (Actions > release >
+#   Run workflow) on the tag with `publish` checked. Both publish jobs use the `release`
+#   environment, so they wait for the reviewers configured on it.
+#
+# One-time setup (repository owner):
+#   1. PyPI: add a trusted publisher for project `llm-parity` (owner raunaksahahere,
+#      repository parity, workflow release.yml, environment release).
+#   2. GitHub: Settings > Environments > release, add required reviewers.
+#   GHCR needs no secret: the job pushes with GITHUB_TOKEN (packages: write).
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish the wheel to PyPI and the image to GHCR"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          test "v${version}" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} != v${version}"; exit 1; }
+      - run: uv build
+      - name: Smoke-test the wheel in a fresh virtualenv
+        run: |
+          uv venv "$RUNNER_TEMP/smoke"
+          py="$RUNNER_TEMP/smoke/bin/python"
+          uv pip install --python "$py" dist/*.whl
+          "$RUNNER_TEMP/smoke/bin/parity" version
+          "$RUNNER_TEMP/smoke/bin/parity" list-probes
+          "$py" -c "import parity, parity.suites as s; print(parity.__version__, s.DEFAULT_SUITE)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and smoke-test both images
+        run: |
+          docker build --build-arg WITH_REFERENCE=0 -t parity:slim .
+          docker build -t parity:full .
+          docker run --rm parity:slim version
+          docker run --rm parity:full list-probes
+          docker run --rm --entrypoint python parity:full -c "import torch, parity; print(torch.__version__, parity.__version__)"
+
+  publish-pypi:
+    needs: [build, docker]
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-ghcr:
+    needs: [build, docker]
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/parity
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

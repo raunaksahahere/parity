@@ -32,6 +32,7 @@ from parity.suite import (
     hf_reference,
     sanitize_url,
 )
+from parity.suites import DEFAULT_SUITE
 from parity.verdict import coverage_line
 
 CALIBRATION_PROBES = ["distribution.teacher_forced", "greedy.agreement", "tools.structured"]
@@ -248,7 +249,7 @@ def calibrate(
     cal = Calibration(
         model_id=ref.info.model_id,
         revision=ref.info.revision,
-        suite="core-v1",
+        suite=DEFAULT_SUITE,
         context=calibration_context(ref, s.effective_options(), CALIBRATION_PROBES),
         benign_deployments=deployments,
         safety_factor=safety_factor,
@@ -332,6 +333,9 @@ def canary(
     ] = None,
     dtype: str = "float32",
     cache_dir: Path = Path(".parity-cache"),
+    require_probe: Annotated[
+        list[str] | None, typer.Option(help="Probe that must reach PASS or DEVIATION")
+    ] = None,
 ) -> None:
     """Run the suite on a schedule and expose the latest result to Prometheus."""
     import time
@@ -364,6 +368,7 @@ def canary(
                 options={"claimed_context": claimed_context},
                 calibration=cal,
                 calibration_path=str(calibration or ""),
+                require=require_probe,
             )
             tgt = Target(target, served_model or model, adapter, api_key_env)
             rep = canary_suite.run(tgt, ref, out_dir=out)

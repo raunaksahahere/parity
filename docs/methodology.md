@@ -158,23 +158,39 @@ increasing length (512, 2048, ... up to the claimed window minus headroom for th
    Retrieval alone *never* yields DEVIATION (a 0.6B model can simply fail to retrieve); it
    yields INCONCLUSIVE. Retrieval ability is not compared with the reference.
 
-### 2.6 Tool-call and structured-output conformance (`tools.structured`)
+### 2.6 Tool-call and structured-output conformance (`tools.structured`, version 2)
 
-The design is paired: identical greedy prompts go to the target and through the reference.
+The design is paired: identical greedy prompts go to the target and through the reference
+(suite data `core-v2`: 48 prompts that should call one of four tools, 48 that should not,
+24 extraction prompts). Three statistical tests share the probe's alpha (Bonferroni):
 
-* *Trigger agreement.* 12 prompts that should call a tool and 12 that should not. The number of
-  target/reference disagreements is tested against a benign disagreement rate with an exact
-  binomial test; F1 of the target against the reference decisions is reported.
-* *Validity.* Called tool names must be among those offered, arguments must be valid JSON and
-  satisfy the declared schema; raw `<tool_call>` markup in the content (parsing not enabled) is
-  reported.
-* *Structured output.* Eight extraction prompts with `response_format=json_schema`. The reference
-  generates unconstrained, so a target that is invalid where the reference is valid is tested
-  with a one-sided sign test on the discordant pairs.
+* *Trigger agreement* (`tool_choice` auto). The number of prompts where the target calls a tool
+  and the reference does not, or the reverse, is tested against the calibrated benign
+  disagreement rate with an exact binomial test; F1 against the reference decisions is reported.
+  Detects, for example, a server that drops tool definitions.
+* *Call validity.* A call is valid when it names an offered tool and its arguments are JSON that
+  satisfies the declared schema. Among prompts where both sides call a tool, a one-sided sign
+  test compares "target invalid, reference valid" with the reverse. A model that makes the same
+  invalid call as the reference is therefore not blamed on the server; corrupted names or
+  arguments are.
+* *Structured output.* The target is asked for `response_format=json_schema` (strict); the
+  reference generates unconstrained. Sign test on the discordant pairs.
 
-With 24 trigger prompts the probe has limited power; it reports its own
-`min_detectable_disagreements`. Reference tool calls are parsed from Hermes/Qwen `<tool_call>`
-markup only in v0.1.
+Deterministic evidence, which a conforming server cannot produce whatever the model does:
+structured `tool_calls` in reply to `tool_choice="none"`; a strict `json_schema` reply that
+finished normally (`finish_reason="stop"`) but is not valid JSON for the schema (a reply cut off
+by `max_tokens` is not counted); raw `<tool_call>` markup in the content of an auto request.
+
+`tool_choice="required"` is measured as a *capability* only: llama.cpp b12128 accepts it but
+does not enforce it for Qwen3 (and ignores the named-function object form with a warning), so a
+missing forced call cannot be evidence against a deployment (decision D15).
+
+**Prompt-set size.** v0.1 used 24 trigger prompts; after calibration (the benign rate is the
+Wilson upper bound of the observed disagreements times 2) the trigger test had 27% power even
+against a 50% disagreement rate. The v0.1.1 target is power >= 0.9 to detect a disagreement rate
+of 0.25 at the per-test alpha (0.05 / 4 probes / 3 tests); `scripts/tools_power.py` computes the
+table behind the choice of 96 prompts (decision D15). Reference tool calls are parsed from
+Hermes/Qwen `<tool_call>` markup.
 
 ## 3. Calibration
 
@@ -196,6 +212,13 @@ Without a calibration file, lenient defaults are used and the report says so. Ca
 specific to a model, a reference and a family of deployments: a correct deployment that varies in
 a way the calibration did not see (different kernels, other hardware) may land above the threshold.
 
+**Compatibility is checked, not assumed.** A calibration file (schema 2) records the context its
+thresholds were measured in: weights fingerprint, tokenizer and chat-template fingerprint,
+reference kind and dtype, suite data and its fingerprint, the versions of the calibrated probes
+and the probe options that change calibrated metrics. `parity run --calibration` compares that
+context with its own before sending any request and refuses with every mismatch listed; files
+from parity 0.1.0 (schema 1) cannot be checked and are refused (decision D14).
+
 ## 4. Multiple testing and error budget
 
 * Each *statistical* probe (distribution, greedy, sampler, tools) runs at α/m, where m is the
@@ -211,18 +234,20 @@ a way the calibration did not see (different kernels, other hardware) may land a
 
 ## 5. Budget and early stopping
 
-`--budget N` caps requests sent to the target. Probes check the budget before each batch; a
-probe that cannot reach a decision within the budget returns INCONCLUSIVE rather than passing on
-partial evidence. Requests per verdict for each scenario are reported in
+`--budget N` caps requests sent to the target, retries included; the client enforces it as a
+hard limit. Probes check the budget before each batch; a probe that cannot reach a decision
+within the budget, or that cannot start because the budget is used up, is INCONCLUSIVE rather
+than passing on partial evidence. A resumed run's budget is the total over all its sessions:
+the run manifest keeps a ledger of every request sent (interrupted probes included), and the
+resumed session may only send what is left. Requests per verdict for each scenario are reported in
 [validation.md](validation.md).
 
 `--fail-fast` stops the suite after the first probe that returns DEVIATION; later probes are
 recorded as SKIPPED ("not run"). This cannot weaken a deviation: each statistical probe runs
 at α/m, so its DEVIATION survives the Holm step whatever the other probes would have returned,
 and hard evidence is exempt from correction. Probes run cheapest first (template,
-long-context, tools, greedy, distribution, sampler), and since they do not influence each
-other, the validation study reports the requests a fail-fast run *would* have used, computed
-from the full runs.
+long-context, tools, greedy, distribution, sampler). The v0.1.1 study measures fail-fast costs
+with real `--fail-fast` runs and reports them next to the counts inferred from full runs.
 
 ## 6. Capability fallbacks and where alignment is impossible
 
@@ -247,7 +272,19 @@ corresponding probes do not claim a result:
   normalization in the server.
 * The model's tokenizer in the server differs from the reference's (a different checkpoint).
 
-## 7. Known limitations
+## 7. Reproducibility: manifests and resuming
+
+Every run directory holds `manifest.json`. Its *identity* (code fingerprint of the installed
+package, library versions, target URL and model, reference fingerprints, probes and their
+versions, suite data fingerprint, alpha, budget, seed, fail-fast, options and the calibration's
+fingerprint) must match exactly for `--resume` to reuse saved probe results. Each saved result
+is listed with the sha256 of its file, so an edited file, a file copied from another run or a
+result from an older probe version is refused, never merged into a verdict. Concurrency and rate
+limits are recorded but not enforced. Reports carry the identity's fingerprint
+(`run_fingerprint`) and a coverage block listing evaluated and skipped probes; `--require-probe`
+makes a PASS conditional on named probes reaching a decision.
+
+## 8. Known limitations
 
 * Truncated-KL is a lower bound; the true divergence can be larger.
 * The corpus is small (25 documents) and mostly English; divergences confined to other

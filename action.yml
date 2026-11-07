@@ -58,6 +58,13 @@ inputs:
     description: "'true' stops at the first deviation to save requests (later probes are not run)."
     required: false
     default: "false"
+  require-probes:
+    description: >
+      Space-separated probes that must reach PASS or DEVIATION (probe ids, family names such as
+      `distribution sampler`, or `all`). If one is skipped (for example because the endpoint
+      has no log-probs) or inconclusive, a PASS becomes INCONCLUSIVE (exit 2).
+    required: false
+    default: ""
   out:
     description: Directory for reports.
     required: false
@@ -105,6 +112,7 @@ runs:
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_OUT: ${{ inputs.out }}
         INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
+        INPUT_REQUIRE_PROBES: ${{ inputs.require-probes }}
       run: |
         args=(run --model "$INPUT_MODEL" --target "$INPUT_TARGET" --reference "$INPUT_REFERENCE"
               --suite "$INPUT_SUITE" --claimed-context "$INPUT_CLAIMED_CONTEXT" --out "$INPUT_OUT")
@@ -114,6 +122,7 @@ runs:
         [ -n "$INPUT_SERVED_MODEL" ] && args+=(--served-model "$INPUT_SERVED_MODEL")
         [ -n "$INPUT_API_KEY_ENV" ] && args+=(--api-key-env "$INPUT_API_KEY_ENV")
         [ "$INPUT_FAIL_FAST" = "true" ] && args+=(--fail-fast)
+        for p in $INPUT_REQUIRE_PROBES; do args+=(--require-probe "$p"); done
         set +e
         "$RUNNER_TEMP/parity-venv/bin/parity" "${args[@]}"
         code=$?

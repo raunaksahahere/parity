@@ -41,6 +41,7 @@ from parity.probes.template import TemplateProbe
 from parity.probes.tools import ToolsProbe
 from parity.report_model import CalibrationInfo, ReferenceInfo, RunReport, TargetInfo
 from parity.stats.calibration import CALIBRATION_SETTINGS, Calibration, CalibrationContext
+from parity.suites import DEFAULT_SUITE
 from parity.tokenization import TokenizerKit
 from parity.verdict import EXIT_CODES, apply_requirements, coverage, decide, summarize
 
@@ -118,7 +119,7 @@ def calibration_context(
     info = reference.info
     if info.tokenizer_fingerprint is None:
         info.tokenizer_fingerprint = tokenizer_fingerprint(reference.kit.tokenizer)
-    suite_data = str(options.get("suite", "core-v1"))
+    suite_data = str(options.get("suite", DEFAULT_SUITE))
     return CalibrationContext(
         model_id=info.model_id,
         revision=info.revision,
@@ -224,7 +225,7 @@ class Suite:
 
     def effective_options(self) -> dict[str, Any]:
         return {
-            "suite": "core-v1",
+            "suite": DEFAULT_SUITE,
             "thresholds": self.calibration.thresholds() if self.calibration else {},
             **self.options,
         }

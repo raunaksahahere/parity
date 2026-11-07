@@ -145,3 +145,63 @@ with a 120 s idle cool-down after each repetition and 2 concurrent requests inst
 supervisor that pauses at 90 C and resumes below 60 C. Request concurrency only changes how
 requests are batched on the server; sampler v3's verdicts are per response and do not depend on
 it. `parity inject-faults run` gained `--cooldown` and `--concurrency` for this.
+
+## D14. v0.1.1: calibrations, saved runs and study rows must prove where they came from
+In v0.1.0 nothing stopped a calibration made for another model revision, tokenizer, suite or
+probe version from setting a run's thresholds, and `--resume` reused any `probes/*.json` it
+found, whatever configuration produced it. Either could change a verdict silently.
+* Calibration schema 2 records a context: weights fingerprint (sha256 over config and weight
+  files; the Hugging Face cache's blob names are reused instead of rehashing), tokenizer
+  fingerprint (tokenizer files plus observed behaviour: ids of a fixed text and renders of a
+  fixed chat with and without tools, so a library upgrade that changes rendering also counts),
+  reference kind and dtype, suite data name and fingerprint, versions of the calibrated probes
+  and the probe options that change calibrated metrics. `parity run` checks it before the first
+  request and refuses with every mismatch listed. When both sides have a weights fingerprint it
+  decides model identity (a hub id and a local copy of the same files match); otherwise the
+  model id and revision must match. Schema-1 files are refused (they cannot be checked).
+* Every run directory gets `manifest.json`: an identity (code fingerprint, library versions,
+  target, reference fingerprints, probes and versions, suite data, alpha, budget, seed,
+  fail-fast, options, calibration fingerprint) that must match exactly to resume, plus one
+  checkpoint per saved probe with the sha256 of its file. A checkpoint is written before its
+  file appears, so a crash leaves at most a checkpoint without a file (the probe re-runs), never
+  an unvouched file. Copied, edited or stale files, and directories without a manifest, are
+  refused. Concurrency and rate limits are recorded but not enforced.
+* Budgets: the manifest keeps a ledger of every request sent (retries and interrupted probes
+  included), saved at most once a second and on exit. A resumed run may only send
+  `budget - consumed`; the client enforces it as a hard cap, and probes that cannot run are
+  INCONCLUSIVE, never silently PASS.
+* The study harness stamps every result row with a study fingerprint (code, reference,
+  calibration, probes, seed base, fail-fast, llama-server binaries) and a scenario fingerprint
+  (server settings, mutation label, GGUF sha256, template file) and refuses a directory whose
+  rows do not match.
+* Reports carry a coverage block (evaluated, decided, skipped with reasons). `--require-probe`
+  turns a PASS into INCONCLUSIVE unless every required probe reached PASS or DEVIATION; a
+  DEVIATION stands on its own evidence.
+
+## D15. Tools probe v2: paired validity, deterministic tool_choice and schema checks, 96 prompts
+Measured on llama.cpp b12128 serving Qwen3 (development deployment `dev-gpu-p4-b256`):
+`tool_choice="required"` is accepted but not enforced (the model answered a haiku prompt in
+text); the named-function object form is rejected with "Wrong type supplied for parameter
+'tool_choice', using default value"; `tool_choice="none"` is honoured (no structured
+tool_calls; the model's own `<tool_call>` markup stays in the content). Strict
+`response_format=json_schema` is enforced by grammar. Consequences:
+* Deterministic evidence only for what a conforming server must do whatever the model does:
+  no structured tool_calls under `none`; strict JSON-schema replies that finished normally must
+  be valid (a reply cut off by `max_tokens` is not counted); auto requests must not leave raw
+  `<tool_call>` markup. `required` is reported as a capability, never as evidence.
+* v0.1 treated an invalid tool name or argument as deterministic evidence. On a server without
+  constrained decoding the *model* can make such calls, and so would the reference. v2 compares
+  them pairwise with the reference (one-sided sign test on prompts where both call a tool).
+* Prompt-set size: with 24 auto prompts and the calibrated benign rate (2 x Wilson upper bound
+  of 0/24 = 0.276) the trigger test had 27% power even at a 50% disagreement rate.
+  Target: power >= 0.9 to detect a 0.25 disagreement rate at the per-test alpha
+  0.05 / 4 / 3 = 0.0042 (`scripts/tools_power.py`). 96 prompts meet it when the benign
+  deployments disagree on no prompt (0.98), 120 would be needed with one disagreement (0.98 vs
+  0.79). The development deployment disagreed on 0 of 96, so 96 were kept (48 trigger, 48
+  plain, interleaved across four tools), plus 12 `none` prompts, 8 `required` prompts and 24
+  JSON prompts (140 requests; reference outputs cached per revision).
+* Development check (`docs/data/v0.1.1-dev-tools-probe.jsonl`, never evaluation data): the honest
+  deployment PASSed with 0 disagreements; each of the six simulated tool faults was detected.
+  These rows informed the design and are excluded from every evaluation table.
+* Suite data moved to `core-v2` (only `tools.json` changed); `core-v1` is kept verbatim so v0.1.0
+  results stay reproducible with `options={"suite": "core-v1"}`.

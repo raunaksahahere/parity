@@ -254,7 +254,7 @@ reports; target URLs are stored without credentials or query strings.
 - **Validated scope.** Live validation so far: one small model (Qwen3-0.6B) on llama.cpp. The vLLM
   and generic OpenAI adapters are built from documented formats and tested with fixtures only. The
   tool probe has little statistical power with its current prompt set. The shipped corpus is small
-  and mostly English. Full list: [methodology](docs/methodology.md#7-known-limitations).
+  and mostly English. Full list: [methodology](docs/methodology.md#8-known-limitations).
 
 ## Documentation
 

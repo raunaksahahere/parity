@@ -9,11 +9,11 @@ from typing import Any
 import httpx
 import numpy as np
 
-from parity.suites import load_json
+from parity.suites import DEFAULT_SUITE, load_json
 from parity.tokenization import TokenizerKit
 from tests.fake_lm import FakeLM
 
-TOOLS = load_json("core-v1", "tools.json")
+TOOLS = load_json(DEFAULT_SUITE, "tools.json")
 TRIGGERS = set(TOOLS["trigger_prompts"])
 PERSON = '{"name": "Ann", "age": 30, "city": "Rome"}'
 CALL = '{"name": "get_weather", "arguments": {"city": "Rome"}}'
@@ -129,7 +129,7 @@ class FakeEndpoint:
         msg: dict[str, Any] = {"content": "Sure."}
         if "response_format" in body:
             msg = {"content": PERSON}
-        elif tools and prompt in TRIGGERS:
+        elif tools and prompt in TRIGGERS and body.get("tool_choice") != "none":
             msg = {
                 "content": None,
                 "tool_calls": [
@@ -139,4 +139,7 @@ class FakeEndpoint:
         elif "vault passphrase" in prompt:
             m = re.search(r"vault passphrase is (\S+?)\.", self.kit.decode(ids))
             msg = {"content": m.group(1) if m else "unknown"}
-        return httpx.Response(200, json={"choices": [{"message": msg}], "usage": usage})
+        finish = "tool_calls" if msg.get("tool_calls") else "stop"
+        return httpx.Response(
+            200, json={"choices": [{"message": msg, "finish_reason": finish}], "usage": usage}
+        )

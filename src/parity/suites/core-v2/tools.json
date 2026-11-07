@@ -1,0 +1,260 @@
+{
+ "version": "core-v2",
+ "tools": [
+  {
+   "type": "function",
+   "function": {
+    "name": "get_weather",
+    "description": "Get the current weather for a city.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "city": {
+       "type": "string"
+      },
+      "unit": {
+       "type": "string",
+       "enum": [
+        "celsius",
+        "fahrenheit"
+       ]
+      }
+     },
+     "required": [
+      "city"
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "get_stock_price",
+    "description": "Get the latest stock price for a ticker symbol.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "symbol": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "symbol"
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "add_numbers",
+    "description": "Add two numbers exactly.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "a": {
+       "type": "number"
+      },
+      "b": {
+       "type": "number"
+      }
+     },
+     "required": [
+      "a",
+      "b"
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "set_timer",
+    "description": "Set a countdown timer.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "minutes": {
+       "type": "integer"
+      }
+     },
+     "required": [
+      "minutes"
+     ]
+    }
+   }
+  }
+ ],
+ "trigger_prompts": [
+  "What's the weather like in Tokyo right now?",
+  "What is the latest price of the stock AAPL?",
+  "Use the calculator to add 1234.5 and 876.25.",
+  "Set a timer for 12 minutes.",
+  "Is it cold in Reykjavik today? Please check.",
+  "How much is MSFT trading at right now?",
+  "Please add 17 and 25 for me with the tool.",
+  "Start a 45 minute countdown timer.",
+  "Tell me the current temperature in Nairobi in celsius.",
+  "Look up the current share price for TSLA.",
+  "Add 98765 and 12345 using the add tool.",
+  "Set a 5 minute timer for my tea.",
+  "Check the weather in Lima, in fahrenheit.",
+  "What does NVDA cost at the moment?",
+  "What is 3.75 plus 8.6? Use the tool to add them exactly.",
+  "Please start a timer for 30 minutes.",
+  "Will I need an umbrella in London today? Look it up.",
+  "Get the latest stock price for AMZN.",
+  "Use add_numbers to sum 450 and 1275.",
+  "I need a 20 minute timer, set it now.",
+  "What is the weather in Buenos Aires at the moment?",
+  "What's GOOGL trading at today?",
+  "Add 0.125 and 0.875 with the tool.",
+  "Set a countdown for 90 minutes.",
+  "Get me the current conditions in Toronto.",
+  "Check the current price of the ticker META.",
+  "Please use the tool to add 66 and 34.",
+  "Start a timer for 3 minutes.",
+  "How warm is it in Cairo right now, in celsius?",
+  "How much is one share of NFLX right now?",
+  "Compute 2048 plus 4096 with the add tool.",
+  "Set a 15 minute timer for the laundry.",
+  "Please check today's weather for Mumbai.",
+  "Fetch the latest quote for IBM.",
+  "Add 19.99 and 5.01 exactly using the tool.",
+  "Begin a 60 minute countdown.",
+  "What's the temperature in Denver in fahrenheit right now?",
+  "What is the stock price of ORCL right now?",
+  "Use the add tool on 731 and 269.",
+  "Set a timer of 8 minutes for the pasta.",
+  "Look up the current weather in Seoul.",
+  "Give me the current price for the ticker AMD.",
+  "With the tool, add 15000 and 27500.",
+  "Could you set a 25 minute focus timer?",
+  "Is it raining in Amsterdam right now? Check the weather.",
+  "Look up the latest share price of INTC.",
+  "Sum 12.5 and 7.25 using the add_numbers tool.",
+  "Start a 2 minute timer."
+ ],
+ "plain_prompts": [
+  "Write a haiku about autumn rain.",
+  "What is the capital of Australia?",
+  "Explain what a prime number is in one sentence.",
+  "Give me a synonym for the word happy.",
+  "Translate good morning into Spanish.",
+  "Name three primary colors.",
+  "What is the boiling point of water at sea level in Celsius, from memory?",
+  "Write one sentence about the moon.",
+  "Who wrote the novel Pride and Prejudice?",
+  "Summarize the plot of Cinderella in one sentence.",
+  "What is 2 plus 2, answer from memory?",
+  "Suggest a name for a pet goldfish.",
+  "Write a short poem about the sea.",
+  "What is the largest planet in the solar system?",
+  "Explain photosynthesis in one sentence.",
+  "Give me an antonym for the word ancient.",
+  "Translate thank you into French.",
+  "Name three kinds of trees.",
+  "Who painted the Mona Lisa?",
+  "Write one sentence about friendship.",
+  "What is the chemical symbol for gold?",
+  "Suggest a title for a mystery novel.",
+  "What does a carpenter do? Answer briefly.",
+  "Name a famous composer from the classical era.",
+  "Describe the color blue in one sentence.",
+  "What language is spoken in Brazil?",
+  "Write a two-line rhyme about a cat.",
+  "What is the opposite of north?",
+  "Give an example of a mammal that lives in the ocean.",
+  "How many legs does a spider have, from memory?",
+  "Recommend a good name for a bakery.",
+  "What is the capital of Canada?",
+  "Explain what gravity is in simple words.",
+  "Write a friendly greeting for a birthday card.",
+  "Which organ pumps blood through the body?",
+  "Give me a fun fact about penguins.",
+  "What is a synonym for quick?",
+  "Name the four seasons.",
+  "Who was the first person to walk on the moon?",
+  "Write a limerick about a frog.",
+  "What shape has three sides?",
+  "In one sentence, what is democracy?",
+  "Suggest a hobby for a rainy day.",
+  "Tell me a short joke about computers.",
+  "What do bees make?",
+  "Name two instruments in an orchestra.",
+  "What is the main ingredient of guacamole?",
+  "Write a motivational sentence for a Monday morning."
+ ],
+ "tool_choice_none_prompts": [
+  "What's the weather like in Tokyo right now?",
+  "What is the latest price of the stock AAPL?",
+  "Use the calculator to add 1234.5 and 876.25.",
+  "Set a timer for 12 minutes.",
+  "Is it cold in Reykjavik today? Please check.",
+  "How much is MSFT trading at right now?",
+  "Please add 17 and 25 for me with the tool.",
+  "Start a 45 minute countdown timer.",
+  "Tell me the current temperature in Nairobi in celsius.",
+  "Look up the current share price for TSLA.",
+  "Add 98765 and 12345 using the add tool.",
+  "Set a 5 minute timer for my tea."
+ ],
+ "tool_choice_required_prompts": [
+  "Write a haiku about autumn rain.",
+  "What is the capital of Australia?",
+  "Explain what a prime number is in one sentence.",
+  "Give me a synonym for the word happy.",
+  "Translate good morning into Spanish.",
+  "Name three primary colors.",
+  "What is the boiling point of water at sea level in Celsius, from memory?",
+  "Write one sentence about the moon."
+ ],
+ "max_tokens": 128,
+ "json_schema": {
+  "type": "object",
+  "properties": {
+   "name": {
+    "type": "string"
+   },
+   "age": {
+    "type": "integer"
+   },
+   "city": {
+    "type": "string"
+   }
+  },
+  "required": [
+   "name",
+   "age",
+   "city"
+  ],
+  "additionalProperties": false
+ },
+ "json_instruction": "Extract the person from the text and respond with a JSON object with keys name (string), age (integer) and city (string) and nothing else.\n\nText: ",
+ "json_texts": [
+  "Maria Lopez is 34 years old and lives in Madrid.",
+  "Our new colleague, Chen Wei, 29, just moved to Singapore.",
+  "Amara Okafor (41) runs a bakery in Lagos.",
+  "Located in Oslo, Henrik Solberg turned 57 last week.",
+  "Priya Raman, aged 23, studies in Chennai.",
+  "The pilot, Tomas Novak, 48, is based in Prague.",
+  "Yuki Tanaka is a 31 year old chef from Kyoto.",
+  "Sam O'Brien, 52, retired to Galway.",
+  "Lucas Moreau, 39, teaches music in Lyon.",
+  "In Toronto lives Grace Kim, who is 26.",
+  "Diego Alvarez is a 45 year old architect based in Bogota.",
+  "Fatima Zahra, 33, works as a nurse in Casablanca.",
+  "Retired engineer Olaf Berg (68) still lives in Bergen.",
+  "Mei Lin, 21, is a student in Taipei.",
+  "The journalist Ana Costa, age 37, reports from Lisbon.",
+  "Kwame Mensah lives in Accra and is 44 years old.",
+  "Sofia Rossi (28) designs shoes in Milan.",
+  "At 61, Ivan Petrov still coaches chess in Kazan.",
+  "Nadia Haddad, 35, opened a cafe in Beirut.",
+  "Hiroshi Sato is 50 and works in Osaka.",
+  "Emma Johansson, a 24 year old nurse, lives in Uppsala.",
+  "Carlos Mendes, 58, fishes near Porto.",
+  "The violinist Leila Farahani, 30, performs in Tehran.",
+  "Ahmed Saleh, aged 42, drives a taxi in Dubai."
+ ]
+}

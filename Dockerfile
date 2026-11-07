@@ -1,6 +1,9 @@
 # Parity CLI. Build with --build-arg WITH_REFERENCE=0 for a smaller image that can only use
 # a URL reference (--reference http://...); the default includes CPU PyTorch for hf:local.
 FROM python:3.12-slim
+LABEL org.opencontainers.image.source="https://github.com/raunaksahahere/parity" \
+      org.opencontainers.image.description="Statistical conformance testing for LLM inference endpoints" \
+      org.opencontainers.image.licenses="Apache-2.0"
 
 ARG WITH_REFERENCE=1
 ENV PIP_NO_CACHE_DIR=1 PYTHONUNBUFFERED=1 HF_HOME=/cache/hf

@@ -34,7 +34,7 @@ from parity.stats.sampling import (
     expected_distribution,
     stable_top_p,
 )
-from parity.suites import load_json
+from parity.suites import DEFAULT_SUITE, load_json
 
 VIOLATION_TOLERANCE = 1e-3  # numerical slack for the out-of-support rate under H0
 MIN_VIOLATION_RATE = 0.01  # practical threshold for calling a violation rate a deviation
@@ -206,7 +206,7 @@ class SamplerProbe(Probe):
                     "the sampler probe needs both to know the true next-token distribution"
                 ],
             )
-        spec = load_json(ctx.options.get("suite", "core-v1"), "sampler.json")
+        spec = load_json(ctx.options.get("suite", DEFAULT_SUITE), "sampler.json")
         looks: list[int] = list(ctx.options.get("sampler_looks", [100, 250, 500]))
         n_prompts_used = int(ctx.options.get("sampler_prompts", 2))
         top_k_report = min(caps.max_top_k, 1000)

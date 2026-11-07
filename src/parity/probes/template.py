@@ -18,7 +18,7 @@ from typing import Any
 
 from parity.client import EndpointError
 from parity.probes.base import Finding, Probe, ProbeContext, ProbeResult, Status
-from parity.suites import load_json
+from parity.suites import DEFAULT_SUITE, load_json
 
 
 @dataclass(frozen=True)
@@ -78,7 +78,7 @@ class TemplateProbe(Probe):
     family = "template"
 
     async def run(self, ctx: ProbeContext) -> ProbeResult:
-        suite = ctx.options.get("suite", "core-v1")
+        suite = ctx.options.get("suite", DEFAULT_SUITE)
         spec = load_json(suite, "template.json")
         tools = spec["tools"]
         tolerate_constant = bool(ctx.options.get("tolerate_constant_offset", False))

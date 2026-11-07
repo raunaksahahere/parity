@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.1.1 (unreleased)
+
+Reliability release: results can no longer be influenced by an incompatible calibration or by
+stale saved results, and the tool probe has real power.
+
+* **Calibration compatibility.** Calibration files (schema 2) record the weights, tokenizer and
+  chat-template fingerprints, reference kind and dtype, suite data fingerprint, calibrated probe
+  versions and metric-relevant settings. `parity run` and `parity canary` refuse a mismatching
+  or a 0.1.0 (schema 1) calibration before sending any request, listing every mismatch.
+* **Run manifests.** Each run directory has `manifest.json` with the configuration and
+  fingerprints the results depend on, a sha256 per saved probe result and a ledger of requests
+  consumed. `--resume` reuses only results that match; changed configurations, edited, copied or
+  stale files and 0.1.0 run directories are refused with the reasons.
+* **Budgets across sessions.** A resumed run may only spend what is left of `--budget` after
+  every earlier request (retries and interrupted probes included); the client enforces the cap.
+  Probes that cannot run within the budget are INCONCLUSIVE. Reports add `requests_consumed`.
+* **Study integrity.** Every validation-study row carries study and scenario fingerprints; a
+  study directory holding rows from another configuration is refused. New harness options:
+  `--seed-base` (fresh evaluation seeds), `--fail-fast` (real fail-fast runs), `--cool-to`
+  (wait for the hardware to cool between repetitions); rows record peak RSS of parity and the
+  server.
+* **Tools probe v2** (suite data `core-v2`; `core-v1` is kept for reproducing 0.1.0): 96 auto
+  prompts instead of 24, a paired call-validity test that does not blame the model's own
+  invalid calls on the server, deterministic checks for `tool_choice="none"` violations and for
+  strict JSON-schema replies that finished but are invalid; `tool_choice="required"` is reported
+  as a capability (llama.cpp b12128 does not enforce it).
+* **Fault harness.** Proxy mutations are labelled request rewriting or response corruption; new
+  faults: dropped tool definitions, ignored `tool_choice`, invalid tool names, malformed tool
+  arguments, schema-violating arguments, malformed structured output. CPU twins of the eleven
+  original faults; fresh held-out control deployments.
+* **Coverage.** Reports show evaluated and skipped probes prominently; `--require-probe`
+  (CLI, canary, GitHub Action `require-probes`) turns a PASS into INCONCLUSIVE unless the named
+  probes reached a decision.
+* Fixed: Markdown reports broke the probe table when an effect unit contained `|`.
+* Quickstart uses the BF16 GGUF as the known-good baseline (Q8_0 legitimately deviates from the
+  BF16 reference) and states the expected outcome of each step; `scripts/quickstart_check.sh`
+  verifies them.
+* Release automation (`.github/workflows/release.yml`): build, wheel and Docker smoke tests on
+  tags; publishing to PyPI and GHCR only on manual dispatch behind the `release` environment.
+
 ## 0.1.0 (2026-11-07)
 
 First release.

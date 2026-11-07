@@ -128,7 +128,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         "control",
         "BF16, GPU, 2 slots, ctx 8192",
         ServerSpec(ctx_size=8192, parallel=2),
-        reps=10,
+        reps=8,
         expects="PASS",
     ),
     Scenario(
@@ -136,7 +136,7 @@ SCENARIOS: tuple[Scenario, ...] = (
         "control",
         "BF16, GPU, 1 slot, -b 128 -ub 64",
         ServerSpec(ctx_size=4096, parallel=1, batch_size=128, ubatch_size=64),
-        reps=10,
+        reps=8,
         expects="PASS",
     ),
     Scenario(
