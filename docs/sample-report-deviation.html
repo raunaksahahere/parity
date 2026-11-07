@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parity report: qwen3</title>
+<style>
+:root{--bg:#fff;--fg:#1b1f24;--muted:#5b6670;--line:#d8dee4;--card:#f6f8fa;--pass:#1a7f37;--dev:#cf222e;--inc:#9a6700;--skip:#6e7781}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8b949e;--line:#30363d;--card:#161b22;--pass:#3fb950;--dev:#f85149;--inc:#d29922;--skip:#8b949e}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:1.5rem;margin:0 0 4px}h2{font-size:1.15rem;margin:32px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.banner{border-radius:8px;padding:16px;margin:16px 0;color:#fff}.PASS{background:var(--pass)}.DEVIATION{background:var(--dev)}.INCONCLUSIVE{background:var(--inc)}
+.banner b{font-size:1.3rem}
+table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.chip{display:inline-block;padding:1px 8px;border-radius:10px;color:#fff;font-size:.78rem;font-weight:600}
+.chip.PASS{background:var(--pass)}.chip.DEVIATION{background:var(--dev)}.chip.INCONCLUSIVE{background:var(--inc)}.chip.SKIPPED{background:var(--skip)}
+.muted{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px}
+ul{margin:4px 0 4px 20px;padding:0}code{font-size:.85em}.tablewrap{overflow-x:auto}
+details{margin:4px 0}svg{max-width:100%;height:auto}
+</style>
+</head>
+<body><main>
+<h1>Parity conformance report</h1>
+<div class="muted">qwen3 at http://127.0.0.1:58541 · run 20261107T073255-5ffacd · parity 0.1.0.dev0</div>
+<div class="banner DEVIATION"><b>DEVIATION</b><br>Behaviour differs from the reference in: greedy.agreement, distribution.teacher_forced.</div>
+
+<h2>Setup</h2>
+<div class="tablewrap"><table>
+<tr><th>Target</th><td>http://127.0.0.1:58541 (model <code>qwen3</code>, adapter <code>llamacpp</code>)</td></tr>
+<tr><th>Reference</th><td>hf:local · <code>Qwen/Qwen3-0.6B</code> @ <code>c1899de289a04d12100db370d81485cdf75e47ca</code> · float32</td></tr>
+<tr><th>Suite</th><td>core, alpha 0.05, 6359 requests, 76.18 s</td></tr>
+<tr><th>Calibration</th><td>2026-11-06T03:54:25+00:00: kl_mean=0.000136, greedy_hazard=0.0158, tool_disagreement=0.276</td></tr>
+
+</table></div>
+
+<h2>Probes</h2>
+<div class="tablewrap"><table>
+<tr><th>Probe</th><th>Verdict</th><th>Effect</th><th>Threshold</th><th>p / Holm p</th><th>Requests</th></tr>
+
+<tr><td><code>template.token_counts</code></td>
+<td><span class="chip PASS">PASS</span></td>
+<td>0 <span class="muted">max |token count difference|</span></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>7</td></tr>
+<tr><td colspan="6">
+
+<ul><li><b>info</b>: all token counts match the local render</li></ul>
+
+<details><summary class="muted">metrics</summary><table><tr><td><code>conversations</code></td><td>7</td></tr><tr><td><code>measured</code></td><td>7</td></tr><tr><td><code>mismatches</code></td><td>0</td></tr></table></details>
+</td></tr>
+
+<tr><td><code>longctx.needle</code></td>
+<td><span class="chip PASS">PASS</span></td>
+<td>0 <span class="muted">lengths/depths with accounting problems</span></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>9</td></tr>
+<tr><td colspan="6">
+
+<ul><li><b>info</b>: token accounting consistent up to 4032 tokens; needle retrieval rate 1.00</li></ul>
+<ul class="muted"><li>retrieval ability of the model itself is not compared with the reference; only accounting and start-vs-end consistency are used as evidence</li></ul>
+<details><summary class="muted">metrics</summary><table><tr><td><code>requests</code></td><td>9</td></tr><tr><td><code>retrieval_rate</code></td><td>1</td></tr><tr><td><code>max_length_tested</code></td><td>4032</td></tr><tr><td><code>accounting_problems</code></td><td>0</td></tr></table></details>
+</td></tr>
+
+<tr><td><code>tools.structured</code></td>
+<td><span class="chip PASS">PASS</span></td>
+<td>0.08333 <span class="muted">tool-trigger disagreement rate</span></td>
+<td>n/a</td>
+<td>1 / 1</td>
+<td>32</td></tr>
+<tr><td colspan="6">
+
+<ul><li><b>info</b>: tool and structured-output behaviour matches</li></ul>
+<ul class="muted"><li>24 trigger prompts and 8 JSON prompts give limited power; see min_detectable_disagreements</li></ul>
+<details><summary class="muted">metrics</summary><table><tr><td><code>tool_calls</code></td><td>10</td></tr><tr><td><code>invalid_tool_name</code></td><td>0</td></tr><tr><td><code>invalid_arguments</code></td><td>0</td></tr><tr><td><code>raw_tool_markup_in_content</code></td><td>0</td></tr><tr><td><code>target_trigger_rate</code></td><td>0.41667</td></tr><tr><td><code>trigger_f1</code></td><td>0.9</td></tr><tr><td><code>trigger_disagreements</code></td><td>2</td></tr><tr><td><code>trigger_prompts</code></td><td>24</td></tr><tr><td><code>reference_trigger_rate</code></td><td>0.41667</td></tr><tr><td><code>min_detectable_disagreements</code></td><td>13</td></tr><tr><td><code>json_schema_adherence</code></td><td>1</td></tr><tr><td><code>json_reference_adherence</code></td><td>1</td></tr></table></details>
+</td></tr>
+
+<tr><td><code>greedy.agreement</code></td>
+<td><span class="chip DEVIATION">DEVIATION</span></td>
+<td>0.25 <span class="muted">per-token divergence hazard</span></td>
+<td>0.0158</td>
+<td>0.00354 / 0.0106</td>
+<td>4</td></tr>
+<tr><td colspan="6">
+
+<ul><li><b>deviation</b>: per-token divergence hazard 0.2500 (4 divergences in 16 compared positions); benign h0=0.0157613, deviation h1=0.0788066</li></ul>
+<ul class="muted"><li>p-value is exp(-LLR), a valid sequential p-value (Ville&#39;s inequality); the test stops for H1 at p &lt;= 0.0125 and for H0 at the Wald boundary (beta=0.1)</li></ul>
+<details><summary class="muted">metrics</summary><table><tr><td><code>hazard</code></td><td>0.25</td></tr><tr><td><code>trials</code></td><td>16</td></tr><tr><td><code>divergences</code></td><td>4</td></tr><tr><td><code>prompts_diverged_fraction</code></td><td>1</td></tr><tr><td><code>median_divergence_position</code></td><td>3</td></tr><tr><td><code>h0</code></td><td>0.015761</td></tr><tr><td><code>h1</code></td><td>0.078807</td></tr></table></details>
+</td></tr>
+
+<tr><td><code>distribution.teacher_forced</code></td>
+<td><span class="chip DEVIATION">DEVIATION</span></td>
+<td>0.07694 <span class="muted">nats (mean KL lower bound)</span><br><span class="muted">CI 0.0399 to 0.11</span></td>
+<td>0.000136</td>
+<td>0.0005 / 0.002</td>
+<td>303</td></tr>
+<tr><td colspan="6">
+
+<ul><li><b>deviation</b>: mean KL lower bound 0.07694 nats (one-sided CI 0.03995 to 0.10953) vs threshold 0.000135677; top-1 agreement 0.851</li></ul>
+<ul class="muted"><li>KL is a lower bound from truncated top-k lists; true divergence may be larger</li></ul>
+<details><summary class="muted">metrics</summary><table><tr><td><code>kl_lower_bound_mean</code></td><td>0.07694</td></tr><tr><td><code>kl_ci_lo</code></td><td>0.039949</td></tr><tr><td><code>kl_ci_hi</code></td><td>0.10953</td></tr><tr><td><code>top1_agreement</code></td><td>0.85149</td></tr><tr><td><code>positions</code></td><td>303</td></tr><tr><td><code>documents</code></td><td>5</td></tr><tr><td><code>mean_ref_mass_in_bound</code></td><td>0.93668</td></tr><tr><td><code>delta_known_fraction</code></td><td>0.92409</td></tr><tr><td><code>mean_delta</code></td><td>-0.083473</td></tr><tr><td><code>mean_abs_delta</code></td><td>0.26865</td></tr><tr><td><code>threshold</code></td><td>0.00013568</td></tr></table></details>
+</td></tr>
+
+<tr><td><code>sampler.conformance</code></td>
+<td><span class="chip PASS">PASS</span></td>
+<td>0 <span class="muted">max(violation rate, TV distance)</span></td>
+<td>n/a</td>
+<td>1 / 1</td>
+<td>6004</td></tr>
+<tr><td colspan="6">
+
+<ul><li><b>info</b>: 7 sampler cases match the expected distributions</li></ul>
+<ul class="muted"><li>context &#39;A random animal that lives in the forest:&#39; skipped: reported log-probs cover only 0.73</li><li>context &#39;The most surprising fact I learned this week was that&#39; skipped: reported log-probs cover only 0.79</li><li>top-k-5: context &#39;My favorite thing about summer is&#39; skipped (near-tied truncation boundary)</li><li>top-p-0.6: context &#39;My favorite thing about summer is&#39; uses top_p=0.5549</li><li>top-p-0.6: context &#39;Once upon a time, in a village by the sea, there lived&#39; skipped (no stable top_p)</li></ul>
+<details><summary class="muted">metrics</summary><table><tr><td><code>cases</code></td><td>7</td></tr><tr><td><code>neutral.excess_tv</code></td><td>0.0012998</td></tr><tr><td><code>neutral.violation_rate</code></td><td>0</td></tr><tr><td><code>neutral.p_gtest</code></td><td>0.47389</td></tr><tr><td><code>neutral.samples</code></td><td>500</td></tr><tr><td><code>temp-0.7.excess_tv</code></td><td>-0.00021451</td></tr><tr><td><code>temp-0.7.violation_rate</code></td><td>0</td></tr><tr><td><code>temp-0.7.p_gtest</code></td><td>0.7999</td></tr><tr><td><code>temp-0.7.samples</code></td><td>500</td></tr><tr><td><code>temp-1.4.excess_tv</code></td><td>0.019096</td></tr><tr><td><code>temp-1.4.violation_rate</code></td><td>0</td></tr><tr><td><code>temp-1.4.p_gtest</code></td><td>0.04167</td></tr><tr><td><code>temp-1.4.samples</code></td><td>500</td></tr><tr><td><code>top-k-5.excess_tv</code></td><td>-0.0061781</td></tr><tr><td><code>top-k-5.violation_rate</code></td><td>0</td></tr><tr><td><code>top-k-5.p_gtest</code></td><td>0.4859</td></tr><tr><td><code>top-k-5.samples</code></td><td>500</td></tr><tr><td><code>top-k-1.excess_tv</code></td><td>0</td></tr><tr><td><code>top-k-1.violation_rate</code></td><td>0</td></tr><tr><td><code>top-k-1.p_gtest</code></td><td>1</td></tr><tr><td><code>top-k-1.samples</code></td><td>500</td></tr><tr><td><code>top-p-0.6.excess_tv</code></td><td>-0.0041557</td></tr><tr><td><code>top-p-0.6.violation_rate</code></td><td>0</td></tr><tr><td><code>top-p-0.6.p_gtest</code></td><td>0.47629</td></tr><tr><td><code>top-p-0.6.samples</code></td><td>500</td></tr><tr><td><code>temp-0.7-top-k-10.excess_tv</code></td><td>-0.0029998</td></tr><tr><td><code>temp-0.7-top-k-10.violation_rate</code></td><td>0</td></tr><tr><td><code>temp-0.7-top-k-10.p_gtest</code></td><td>0.87828</td></tr><tr><td><code>temp-0.7-top-k-10.samples</code></td><td>500</td></tr></table></details>
+</td></tr>
+
+</table></div>
+
+<h2>What this does not prove</h2>
+<div class="card"><ul><li>A PASS does not prove the endpoint serves exactly the reference weights: it shows no difference was detected by these probes at this sample size. Differences smaller than the detection threshold, or in behaviour the probes do not exercise, remain possible.</li><li>A DEVIATION says the observed behaviour differs from the reference beyond the calibrated benign variation. It does not say why (quantization, a different checkpoint, a serving bug, a changed template) and it does not establish intent or misrepresentation by a provider.</li><li>KL is estimated from truncated top-k log-probs and is a lower bound on the true divergence.</li><li>Thresholds come from the benign deployment variants that were calibrated; a legitimate deployment that varies in other ways (different hardware, kernels, batching) may differ more.</li><li>The reference is an implementation of the same open weights, not ground truth: numerics differ slightly between any two correct implementations.</li><li>Probes that need token-id prompts or log-probs are skipped on endpoints without them; the remaining behavioural probes have lower power.</li></ul></div>
+</main></body></html>

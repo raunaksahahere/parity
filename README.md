@@ -127,6 +127,7 @@ A report is evidence about *behaviour on these probes*, not a certificate.
 * [Methodology](docs/methodology.md), [validation study](docs/validation.md),
   [baseline noise](docs/baseline-noise.md), [decisions](docs/decisions.md)
 * [Adding a probe](docs/adding-probes.md), [contributing](CONTRIBUTING.md), [changelog](CHANGELOG.md)
+* Sample report from the validation study (Q4_K_M flagged): [HTML](docs/sample-report-deviation.html), [Markdown](docs/sample-report-deviation.md)
 * CLI: `parity run | report | calibrate | list-probes | history | canary | inject-faults`
 * **Upgrade gates:** the repository is a GitHub Action ([action.yml](action.yml),
   [example](docs/examples/upgrade-gate.yml)); a [Dockerfile](Dockerfile) is included.
