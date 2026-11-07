@@ -206,7 +206,7 @@ tool_calls; the model's own `<tool_call>` markup stays in the content). Strict
 * Suite data moved to `core-v2` (only `tools.json` changed); `core-v1` is kept verbatim so v0.1.0
   results stay reproducible with `options={"suite": "core-v1"}`.
 
-## D17. v0.1.1-rc2: concurrent tool and long-context requests (study restarted)
+## D16. v0.1.1-rc2: concurrent tool and long-context requests (study restarted)
 The first evaluation attempt with `v0.1.1-rc1` was stopped after three rows: on the CPU one full
 suite took 1865 s, 1069 s of it in the tools probe, because its 140 independent requests were
 sent one at a time while the server had four slots (GPU: 143 s of 530 s). The long-context
