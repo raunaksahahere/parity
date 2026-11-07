@@ -20,6 +20,7 @@ def main(args: list[str]) -> int:
     run.add_argument("--reps", type=int, help="override repetitions per scenario")
     run.add_argument("--probes", nargs="*", help="run only these probes (default: core suite)")
     run.add_argument("--cooldown", type=float, default=0.0, help="idle seconds after each rep")
+    run.add_argument("--concurrency", type=int, default=4, help="concurrent requests per run")
     run.add_argument("--hf-model", type=Path, default=Path("models/hf/Qwen3-0.6B"))
     run.add_argument("--revision", default="c1899de289a04d12100db370d81485cdf75e47ca")
     summ = sub.add_parser("summarize", help="print result tables as Markdown")
@@ -40,6 +41,7 @@ def main(args: list[str]) -> int:
                 reps=ns.reps,
                 probes=ns.probes,
                 cooldown_s=ns.cooldown,
+                concurrency=ns.concurrency,
             )
         )
         return 0

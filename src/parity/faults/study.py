@@ -36,6 +36,7 @@ class StudyConfig:
     reps: int | None = None  # override every scenario's repetition count
     probes: list[str] | None = None  # run only these probes (default: the whole core suite)
     cooldown_s: float = 0.0  # idle time after each repetition (keeps a laptop from overheating)
+    concurrency: int = 4  # concurrent requests to the target
     safety_factor: float = 2.0
     log: Callable[[str], None] = print
 
@@ -147,7 +148,7 @@ def run_study(cfg: StudyConfig) -> None:
                         calibration_path=str(cfg.calibration_file),
                     )
                     report = suite.run(
-                        Target(url, SERVED_MODEL, concurrency=4),
+                        Target(url, SERVED_MODEL, concurrency=cfg.concurrency),
                         reference,
                         out_dir=cfg.out / sc.name / f"rep{rep}",
                     )

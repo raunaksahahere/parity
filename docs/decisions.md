@@ -139,3 +139,9 @@ skipped the `top_k=5` case on Q2_K in 3 of 4 repetitions and made those passes u
 Under v3 those skips only cost power (validity no longer depends on the fetched distribution),
 so they were removed; `top_p` placement is kept as a preference. Raw rows of the second attempt:
 `docs/data/validation-sampler-v3-aborted-near-tie-skips.jsonl`.
+The re-validation was run on a laptop that reaches 90 C (chassis sensor) under sustained GPU load.
+After two thermal pauses, the remaining repetitions (from `fault-temperature-ignored` on) were run
+with a 120 s idle cool-down after each repetition and 2 concurrent requests instead of 4, under a
+supervisor that pauses at 90 C and resumes below 60 C. Request concurrency only changes how
+requests are batched on the server; sampler v3's verdicts are per response and do not depend on
+it. `parity inject-faults run` gained `--cooldown` and `--concurrency` for this.
