@@ -37,6 +37,7 @@ def main(args: list[str]) -> int:
                 revision=ns.revision,
                 scenarios=ns.scenarios,
                 reps=ns.reps,
+                probes=ns.probes,
             )
         )
         return 0

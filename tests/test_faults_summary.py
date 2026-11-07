@@ -72,3 +72,19 @@ def test_subset_runs_keep_each_probe_s_full_suite_alpha_share() -> None:
     assert subset_alpha(None) == 0.05
     assert subset_alpha(["sampler.conformance"]) == 0.05 / 4  # same share as in the full suite
     assert subset_alpha(["sampler.conformance", "greedy.agreement"]) == 0.05 / 2
+
+
+def test_harness_cli_passes_every_run_option_to_the_study(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Regression: --probes was parsed but not passed on, so a 'sampler-only' run ran the
+    whole suite."""
+    import parity.faults.cli as fcli
+
+    seen = {}
+    monkeypatch.setattr(fcli, "run_study", lambda cfg: seen.setdefault("cfg", cfg))
+    code = fcli.main(
+        ["run", "--out", "x", "--reps", "2", "--scenarios", "fault-quant-q2_k",
+         "--probes", "sampler.conformance"]
+    )  # fmt: skip
+    cfg = seen["cfg"]
+    assert code == 0 and cfg.reps == 2 and cfg.scenarios == ["fault-quant-q2_k"]
+    assert cfg.probes == ["sampler.conformance"]
