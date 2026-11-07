@@ -132,3 +132,10 @@ so v3 checks each sample's support membership against its own response and runs 
 against the mixture of the per-sample distributions. Expected distributions no longer depend on
 a separate fetch. Re-validated on the GPU with a sampler-only run (subset runs keep the
 probe's full-suite alpha share): see docs/validation.md.
+Two re-validation attempts were discarded before the published one: the harness CLI parsed
+`--probes` but did not pass it on, so the first attempt ran the whole suite (fixed, with a
+regression test); the second still carried v2's near-tie and "no stable top_p" skips, which
+skipped the `top_k=5` case on Q2_K in 3 of 4 repetitions and made those passes uninformative.
+Under v3 those skips only cost power (validity no longer depends on the fetched distribution),
+so they were removed; `top_p` placement is kept as a preference. Raw rows of the second attempt:
+`docs/data/validation-sampler-v3-aborted-near-tie-skips.jsonl`.

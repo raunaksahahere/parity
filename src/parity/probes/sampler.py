@@ -40,10 +40,7 @@ VIOLATION_TOLERANCE = 1e-3  # numerical slack for the out-of-support rate under 
 MIN_VIOLATION_RATE = 0.01  # practical threshold for calling a violation rate a deviation
 MIN_TV = 0.03  # practical threshold on the in-support total variation distance
 MIN_COVERAGE = 0.9  # reported top-K must cover this much probability mass
-MIN_BOUNDARY_GAP = 0.05  # skip cases whose truncation boundary sits on near-tied tokens
-# Skip top_p/min_p cases whose cutoff lies this close to the cumulative mass (or threshold):
-# the server's own log-probs jitter between requests (batching with parallel slots), so a
-# boundary token within this margin may be in the nucleus on one request and out on the next.
+# Preferred minimum distance between a placed top_p and the neighbouring cumulative masses.
 MIN_CUTOFF_MARGIN = 0.02
 
 
@@ -259,24 +256,15 @@ class SamplerProbe(Probe):
             for p in prompts:
                 ps = settings
                 if settings.top_p < 1.0:
+                    # Preference only: v3 judges each sample on its own response, so any top_p is
+                    # valid; a value clear of cumulative-mass boundaries keeps the nucleus stable.
                     chosen = stable_top_p(p.logprobs, settings.top_p, min_margin=MIN_CUTOFF_MARGIN)
-                    if chosen is None:
-                        notes.append(f"{c['id']}: context {p.text!r} skipped (no stable top_p)")
-                        continue
-                    ps = replace(settings, top_p=round(chosen, 4))
+                    if chosen is not None:
+                        ps = replace(settings, top_p=round(chosen, 4))
                     notes.append(f"{c['id']}: context {p.text!r} uses top_p={ps.top_p}")
+                # Near-tied truncation boundaries need no special handling: support and expected
+                # distribution come from each sample's own response, not from this fetch.
                 exp = expected_distribution(p.token_ids, p.logprobs, ps)
-                if exp.cutoff_margin < MIN_CUTOFF_MARGIN:
-                    notes.append(
-                        f"{c['id']}: context {p.text!r} skipped (cutoff within "
-                        f"{exp.cutoff_margin:.3f} of the cumulative mass)"
-                    )
-                    continue
-                if exp.boundary_gap < MIN_BOUNDARY_GAP:
-                    notes.append(
-                        f"{c['id']}: context {p.text!r} skipped (near-tied truncation boundary)"
-                    )
-                    continue
                 per_prompt.append((p, exp, ps))
             if not per_prompt:
                 continue
