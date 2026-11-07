@@ -83,8 +83,8 @@ def test_harness_cli_passes_every_run_option_to_the_study(monkeypatch) -> None: 
     monkeypatch.setattr(fcli, "run_study", lambda cfg: seen.setdefault("cfg", cfg))
     code = fcli.main(
         ["run", "--out", "x", "--reps", "2", "--scenarios", "fault-quant-q2_k",
-         "--probes", "sampler.conformance"]
+         "--probes", "sampler.conformance", "--cooldown", "30"]
     )  # fmt: skip
     cfg = seen["cfg"]
     assert code == 0 and cfg.reps == 2 and cfg.scenarios == ["fault-quant-q2_k"]
-    assert cfg.probes == ["sampler.conformance"]
+    assert cfg.probes == ["sampler.conformance"] and cfg.cooldown_s == 30

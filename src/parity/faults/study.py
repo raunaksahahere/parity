@@ -8,6 +8,7 @@ real suite against a real llama.cpp server (plus the fault proxy for simulated b
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,6 +35,7 @@ class StudyConfig:
     scenarios: list[str] | None = None
     reps: int | None = None  # override every scenario's repetition count
     probes: list[str] | None = None  # run only these probes (default: the whole core suite)
+    cooldown_s: float = 0.0  # idle time after each repetition (keeps a laptop from overheating)
     safety_factor: float = 2.0
     log: Callable[[str], None] = print
 
@@ -155,6 +157,8 @@ def run_study(cfg: StudyConfig) -> None:
                 row = summarize_run(sc, rep, report)
                 with cfg.results_file.open("a") as f:
                     f.write(json.dumps(row) + "\n")
+                if cfg.cooldown_s > 0:
+                    time.sleep(cfg.cooldown_s)  # outside the timed run: no effect on results
                 cfg.log(
                     f"{sc.name} rep{rep}: {row['verdict']} "
                     f"({row['requests']} requests, {row['seconds']:.0f}s) {row['probe_status']}"
