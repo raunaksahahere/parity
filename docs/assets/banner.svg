@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 340" width="1280" height="340" role="img" aria-labelledby="t d">
+  <title id="t">Parity</title>
+  <desc id="d">Parity compares the token distribution of an LLM endpoint with a reference implementation of the same model and answers PASS, DEVIATION or INCONCLUSIVE.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1222"/>
+      <stop offset="0.55" stop-color="#141a3a"/>
+      <stop offset="1" stop-color="#1d1146"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="word" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#a5b4fc"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.045"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="340" rx="24" fill="url(#bg)"/>
+  <rect width="1280" height="340" rx="24" fill="url(#grid)"/>
+
+  <!-- wordmark -->
+  <g font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+    <text x="72" y="130" font-size="104" font-weight="800" letter-spacing="-3" fill="url(#word)">parity</text>
+    <text x="76" y="190" font-size="26" fill="#cbd5e1">Is this endpoint really serving the model you think it is?</text>
+    <text x="76" y="224" font-size="19" fill="#94a3b8">Statistical conformance tests for LLM inference endpoints</text>
+
+    <!-- verdict pills -->
+    <g font-size="15" font-weight="700" letter-spacing="1">
+      <rect x="76" y="254" width="92" height="34" rx="17" fill="#22c55e" fill-opacity="0.16" stroke="#22c55e"/>
+      <text x="122" y="276" text-anchor="middle" fill="#4ade80">PASS</text>
+      <rect x="180" y="254" width="138" height="34" rx="17" fill="#ef4444" fill-opacity="0.16" stroke="#ef4444"/>
+      <text x="249" y="276" text-anchor="middle" fill="#f87171">DEVIATION</text>
+      <rect x="330" y="254" width="168" height="34" rx="17" fill="#f59e0b" fill-opacity="0.16" stroke="#f59e0b"/>
+      <text x="414" y="276" text-anchor="middle" fill="#fbbf24">INCONCLUSIVE</text>
+    </g>
+  </g>
+
+  <!-- distribution chart: endpoint (filled) vs reference (outline) -->
+  <g transform="translate(770 0)">
+    <line x1="0" y1="270" x2="440" y2="270" stroke="#475569" stroke-width="2"/>
+    <g fill="url(#bar)">
+      <rect x="6" y="104" width="30" height="166" rx="4"/>
+      <rect x="50" y="146" width="30" height="124" rx="4"/>
+      <rect x="94" y="188" width="30" height="82" rx="4"/>
+      <rect x="138" y="200" width="30" height="70" rx="4"/>
+      <rect x="182" y="228" width="30" height="42" rx="4"/>
+      <rect x="226" y="234" width="30" height="36" rx="4"/>
+      <rect x="270" y="247" width="30" height="23" rx="4"/>
+      <rect x="314" y="250" width="30" height="20" rx="4"/>
+      <rect x="358" y="258" width="30" height="12" rx="4"/>
+      <rect x="402" y="260" width="30" height="10" rx="4"/>
+    </g>
+    <g fill="none" stroke="#f8fafc" stroke-width="2" stroke-dasharray="5 4" stroke-opacity="0.85">
+      <rect x="6" y="98" width="30" height="172" rx="4"/>
+      <rect x="50" y="150" width="30" height="120" rx="4"/>
+      <rect x="94" y="182" width="30" height="88" rx="4"/>
+      <rect x="138" y="206" width="30" height="64" rx="4"/>
+      <rect x="182" y="224" width="30" height="46" rx="4"/>
+      <rect x="226" y="236" width="30" height="34" rx="4"/>
+      <rect x="270" y="245" width="30" height="25" rx="4"/>
+      <rect x="314" y="252" width="30" height="18" rx="4"/>
+      <rect x="358" y="257" width="30" height="13" rx="4"/>
+      <rect x="402" y="261" width="30" height="9" rx="4"/>
+    </g>
+    <g font-family="'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" fill="#cbd5e1">
+      <rect x="196" y="58" width="22" height="14" rx="3" fill="url(#bar)"/>
+      <text x="226" y="70">endpoint</text>
+      <rect x="306" y="58" width="22" height="14" rx="3" fill="none" stroke="#f8fafc" stroke-width="2" stroke-dasharray="5 4"/>
+      <text x="336" y="70">reference</text>
+      <text x="0" y="298" fill="#64748b" font-size="14">next-token probabilities, same prompt</text>
+    </g>
+  </g>
+</svg>

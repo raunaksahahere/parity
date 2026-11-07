@@ -1,19 +1,38 @@
-# Parity
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="Parity: is this endpoint really serving the model you think it is?" width="100%">
+</p>
 
-**Is this endpoint really serving the model I think it is?**
+<p align="center">
+  <a href="https://github.com/raunaksahahere/parity/actions/workflows/ci.yml"><img src="https://github.com/raunaksahahere/parity/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white" alt="Python 3.12+">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0"></a>
+  <img src="https://img.shields.io/badge/status-alpha-orange" alt="Status: alpha">
+  <img src="https://img.shields.io/badge/validated%20live-llama.cpp-7c3aed" alt="Validated live against llama.cpp">
+</p>
 
-Parity compares an OpenAI-compatible endpoint (llama.cpp, vLLM, SGLang, Ollama, hosted
-providers) with a reference implementation of the same open-weight model, using cheap,
-statistically rigorous, model-agnostic probes. v0.1 is validated live against llama.cpp; the
-vLLM and generic OpenAI adapters are implemented from documented formats and tested with
-fixtures only. It answers with **PASS**, **DEVIATION** or
-**INCONCLUSIVE** and never accuses without evidence: every report states what the result does
-*not* prove.
+<p align="center">
+  <a href="#quickstart"><b>Quickstart</b></a> ·
+  <a href="#what-it-catches"><b>What it catches</b></a> ·
+  <a href="#how-it-works"><b>How it works</b></a> ·
+  <a href="#measured-results"><b>Results</b></a> ·
+  <a href="#use-it-in-ci"><b>CI</b></a> ·
+  <a href="docs/methodology.md"><b>Methodology</b></a>
+</p>
 
-A real run (llama.cpp b12128 serving the BF16 GGUF on an RX 6500M, reference = HF fp32):
+---
 
-```
-$ parity run --model models/hf/Qwen3-0.6B --revision c1899de289a04d12100db370d81485cdf75e47ca \
+You run, or pay for, an open-weight model behind an OpenAI-compatible API. **Is the server
+really running those weights, with the right chat template, and a sampler that honours your
+`temperature` and `top_k`?** Quantized weights, a broken template, ignored sampling parameters
+and silently truncated prompts all still produce fluent text, so you can't spot them by reading
+outputs.
+
+**Parity** sends cheap probes to the endpoint, runs the same inputs through a pinned reference
+implementation of the same model, and uses statistics to decide whether the two differ by more
+than the numerical noise that separates any two correct deployments.
+
+```console
+$ parity run --model Qwen/Qwen3-0.6B --revision c1899de289a04d12100db370d81485cdf75e47ca \
              --target http://127.0.0.1:8081 --served-model qwen3 --claimed-context 4096
 Running suite 'core' against http://127.0.0.1:8081 (reference hf:local)
   template.token_counts          PASS         requests=7 effect=0
@@ -26,60 +45,121 @@ Running suite 'core' against http://127.0.0.1:8081 (reference hf:local)
 Verdict: PASS. No deviation from the reference was detected by the evaluated probes.
 ```
 
-## 60-second quickstart
+<sub>A real run: llama.cpp b12128 serving the BF16 GGUF on an RX 6500M laptop GPU; reference = Hugging Face transformers, fp32, CPU.</sub>
 
-```bash
-# 1. install from a checkout (not yet on PyPI); the reference extra adds CPU PyTorch for the
-#    local Hugging Face reference
-pip install ".[reference]" --extra-index-url https://download.pytorch.org/whl/cpu
+## Three answers, and nothing more
 
-# 2. have an endpoint to test, for example llama.cpp (validated with build b12128):
-llama-server -m Qwen3-0.6B-Q8_0.gguf --port 8081 --jinja -c 16384 --parallel 4
+| Verdict | Exit | Meaning |
+|---|:-:|---|
+| ✅ **PASS** | `0` | No difference beyond calibrated benign variation was found by the probes that ran. |
+| ❌ **DEVIATION** | `1` | Behaviour differs from the reference, with evidence, and the report names the probe that found it. |
+| ⚠️ **INCONCLUSIVE** | `2` | Not enough evidence either way (or an error). Parity never guesses. |
 
-# 3. compare it with the reference model (downloads Qwen/Qwen3-0.6B once, pinned by revision)
-parity run --model Qwen/Qwen3-0.6B --target http://localhost:8081 --served-model qwen3 \
-           --revision c1899de289a04d12100db370d81485cdf75e47ca --claimed-context 4096
-echo $?     # 0 pass, 1 deviation detected, 2 inconclusive or error
-```
+Every report also lists what the result does **not** prove. A verdict is evidence, not a
+certificate ([limits](#limits-read-these)).
 
-Memory: a cold run loads the fp32 reference on the CPU (Qwen3-0.6B peaked at 4.4 GB RSS for
-the whole `parity run` on the test laptop); later runs reuse the on-disk reference cache.
+## What it catches
 
-Open `parity-runs/<run-id>/report.html`. Python API:
+Every row below is a fault that was **injected into a real llama.cpp deployment and detected in
+every repetition** of the [validation study](docs/validation.md).
 
-```python
-import parity
-
-reference = parity.hf_reference(
-    "Qwen/Qwen3-0.6B", revision="c1899de289a04d12100db370d81485cdf75e47ca"
-)
-target = parity.Target("http://localhost:8081", "qwen3")
-report = parity.Suite(name="core").run(target, reference)
-print(report.verdict, report.exit_code)
-```
-
-For meaningful verdicts, **calibrate** first against known-good deployments that differ in
-benign ways (see [methodology](docs/methodology.md#3-calibration)):
-
-```bash
-parity calibrate --model Qwen/Qwen3-0.6B --benign gpu=http://localhost:8081 --benign cpu=http://localhost:8082
-parity run ... --calibration calibration.json
-```
-
-## What it checks
-
-| Family | Probe | Evidence |
+| What went wrong | How it was produced | Caught by |
 |---|---|---|
-| 1. Template and tokenizer | `template.token_counts` | Official chat template rendered locally vs the server's `usage.prompt_tokens`; names the cause (dropped system prompt, duplicated BOS, tool formatting, ...) |
-| 2. Distributional fidelity | `distribution.teacher_forced` | Teacher-forced corpus; truncated-KL lower bound with document-cluster bootstrap and an equivalence-style decision |
-| 3. Greedy agreement | `greedy.agreement` | Temperature-0 continuations; per-token divergence hazard tested sequentially |
-| 4. Sampler conformance | `sampler.conformance` | Samples at set temperature/top_k/top_p vs the expected truncated, renormalized distribution (G-test) |
-| 5. Long-context integrity | `longctx.needle` | Token accounting and needle retrieval at increasing lengths |
-| 6. Tools and structured output | `tools.structured` | Valid JSON and schema rate, tool-name validity, trigger F1 vs the reference |
+| Quantized weights served as the full model | Q8_0, Q4_K_M or Q2_K GGUF instead of BF16 | 📊 distribution, 🎯 greedy |
+| Wrong or broken chat template | llama3 template, or a template without a system role | 🧩 template, 📏 long-context |
+| Sampling parameters ignored | `top_k`, `top_p` or `temperature` dropped by the server | 🎲 sampler (and 🎯 greedy for temperature) |
+| Temperature mis-scaled | temperature x1.5 | 🎲 sampler |
+| Smaller context than advertised | 2,048 tokens served, 4,096 claimed | 📏 long-context |
+| Silent prompt truncation | long prompts cut down without an error | 📏 long-context |
 
-Statistics: thresholds calibrated from benign variation, SPRT early stopping under a request
-budget, bootstrap confidence intervals, Holm-Bonferroni across probes. Details and the places
-where each procedure can mislead: [docs/methodology.md](docs/methodology.md).
+## The six probes
+
+| | Probe | The question it asks | Evidence |
+|:-:|---|---|---|
+| 🧩 | `template.token_counts` | Does the server format chats exactly like the official template? | Local render of the official template vs the server's `usage.prompt_tokens`; names the cause (dropped system prompt, duplicated BOS, tool formatting, ...) |
+| 📊 | `distribution.teacher_forced` | Are next-token probabilities the same as the reference's? | Truncated-KL lower bound on a fixed corpus, document-cluster bootstrap, equivalence-style decision |
+| 🎯 | `greedy.agreement` | Does temperature-0 output follow the same tokens? | Per-token divergence hazard, tested sequentially (SPRT) |
+| 🎲 | `sampler.conformance` | Do `temperature`, `top_k` and `top_p` do what they say? | Every sample checked against the distribution reported in its own response; G-test |
+| 📏 | `longctx.needle` | Is the whole advertised context really used? | Token accounting at increasing lengths, needle retrieval, rejections inside the claimed window |
+| 🛠️ | `tools.structured` | Are tool calls and JSON outputs valid, and like the reference's? | Tool-name and argument-schema validity, JSON-schema adherence, trigger agreement vs the reference |
+
+Probes run cheapest first, so `--fail-fast` reaches a DEVIATION after as few as 7 requests.
+
+## Quickstart
+
+**1. Install** (from a checkout for now; the PyPI package `llm-parity` is not published yet)
+
+```bash
+git clone https://github.com/raunaksahahere/parity && cd parity
+pip install torch --index-url https://download.pytorch.org/whl/cpu   # CPU PyTorch for the local reference
+pip install ".[reference]"
+```
+
+**2. Serve a known-good baseline.** The BF16 GGUF has the same precision as the reference
+weights, so a correct server should PASS:
+
+```bash
+hf download unsloth/Qwen3-0.6B-GGUF Qwen3-0.6B-BF16.gguf \
+   --revision 50968a4468ef4233ed78cd7c3de230dd1d61a56b --local-dir models
+llama-server -m models/Qwen3-0.6B-BF16.gguf --port 8081 --jinja -c 16384 --parallel 4
+```
+
+**3. Compare it with the reference** (downloads `Qwen/Qwen3-0.6B` once, pinned by revision)
+
+```bash
+parity run --model Qwen/Qwen3-0.6B --revision c1899de289a04d12100db370d81485cdf75e47ca \
+           --target http://localhost:8081 --served-model qwen3 --claimed-context 4096
+echo $?   # 0 pass · 1 deviation · 2 inconclusive or error
+```
+
+Then open `parity-runs/<run-id>/report.html`.
+
+> [!TIP]
+> **Calibrate before you trust a verdict.** Thresholds should come from deployments you know are
+> correct but that differ in harmless ways (backend, slots, batch size). Same-configuration
+> repeats are often bit-identical and would make Parity flag every honest change.
+>
+> ```bash
+> llama-server -m models/Qwen3-0.6B-BF16.gguf --port 8082 --jinja -c 16384 --parallel 4 --device none  # CPU copy
+> parity calibrate --model Qwen/Qwen3-0.6B --revision c1899de289a04d12100db370d81485cdf75e47ca \
+>                  --served-model qwen3 --benign gpu=http://localhost:8081 --benign cpu=http://localhost:8082
+> parity run ... --calibration calibration.json
+> ```
+
+**What to expect**
+
+| Endpoint | Expected | Why |
+|---|---|---|
+| BF16 GGUF, llama.cpp | ✅ PASS | Same precision as the reference; KL around 1e-5 nats |
+| Q8_0 GGUF, calibrated | ❌ DEVIATION (distribution probe) | A real, if small, numerical change: KL ~1.3e-3 nats, about 9x the calibrated benign threshold |
+| Q4_K_M or Q2_K GGUF | ❌ DEVIATION (greedy + distribution) | Large changes in next-token probabilities |
+
+A cold run loads the fp32 reference on the CPU (Qwen3-0.6B: 4.4 GB peak RSS for the whole run
+on the test laptop); later runs reuse the on-disk reference cache.
+
+## How it works
+
+```mermaid
+flowchart LR
+    E["Endpoint under test<br/>llama.cpp · vLLM · OpenAI-compatible"] --> P
+    R["Reference<br/>same open weights, pinned revision"] --> P
+    P["Six probes<br/>cheapest first"] --> S["Statistics<br/>calibrated thresholds · SPRT<br/>bootstrap CIs · Holm-Bonferroni"]
+    S --> V1(["PASS · exit 0"])
+    S --> V2(["DEVIATION · exit 1"])
+    S --> V3(["INCONCLUSIVE · exit 2"])
+```
+
+1. **Same inputs, two implementations.** Probes send token-id prompts (when the server accepts
+   them) so the endpoint and the reference see exactly the same tokens.
+2. **Calibrated, not guessed.** Thresholds sit just above the variation measured between known-good
+   deployments, never at zero.
+3. **Stop early, stay honest.** Sequential tests (SPRT) stop as soon as the evidence is clear; Holm-Bonferroni
+   keeps the familywise error rate at `alpha` across probes; bootstrap intervals respect document
+   structure.
+4. **Equivalence, not just difference.** The distribution probe passes only when the upper confidence
+   bound is *below* the threshold; otherwise it is DEVIATION or INCONCLUSIVE.
+
+Details, and the places where each procedure can mislead: [docs/methodology.md](docs/methodology.md).
 
 <!-- RESULTS:BEGIN -->
 ## Measured results
@@ -105,42 +185,89 @@ False positives on correct deployments (held-out controls): **0/23** runs (95% C
 The `sampler (1/3)` on Q2_K was a misattribution by sampler v2 (numerical jitter between requests). Sampler v3, re-validated alone on the GPU deployments, reported DEVIATION on 12/12 sampler-fault repetitions and on 0/26 others, including 0/10 on Q2_K.
 <!-- RESULTS:END -->
 
-## Limits of inference
+## Use it in CI
 
-A report is evidence about *behaviour on these probes*, not a certificate.
+The repository is a GitHub Action. Gate an inference upgrade on "still serves the same model":
 
-* **PASS is not proof of identity.** It means no difference beyond the calibrated benign
-  variation was found at this sample size. Smaller differences, and behaviour the probes do not
-  exercise (other languages, long documents, safety behaviour), can remain.
-* **DEVIATION is not an accusation.** It says the behaviour differs from the reference beyond
-  benign variation. It cannot tell a different checkpoint from a quantization, a template bug or
-  a serving bug, and says nothing about intent.
-* **The reference is an implementation, not ground truth**, and two correct implementations
-  differ numerically. Thresholds are calibrated on the deployment variants you give it; a legitimate
-  variant outside that family (other hardware or kernels) can look like a deviation.
-* **KL is a lower bound** (truncated top-k), so true divergence can be larger.
-* **Capabilities gate power.** Endpoints without token-id prompts or log-probs skip the
-  distributional, greedy and sampler probes; the remaining behavioural probes have lower power and
-  the report says so.
-* The shipped corpus and prompts are small and mostly English. See the full list in
-  [docs/methodology.md](docs/methodology.md#7-known-limitations).
+```yaml
+- uses: raunaksahahere/parity@v0.1.0
+  env:
+    STAGING_API_KEY: ${{ secrets.STAGING_API_KEY }}   # read from the environment only
+  with:
+    model: Qwen/Qwen3-0.6B
+    revision: c1899de289a04d12100db370d81485cdf75e47ca
+    target: https://staging.example.com/v1
+    served-model: qwen3-0.6b
+    api-key-env: STAGING_API_KEY
+    calibration: ci/parity-calibration.json
+    budget: "8000"
+    fail-on: deviation
+```
 
-## More
+Full example: [docs/examples/upgrade-gate.yml](docs/examples/upgrade-gate.yml). The step summary
+shows the Markdown report; `report.html`, `report.md` and `report.json` are uploaded as an artifact.
 
-* [Methodology](docs/methodology.md), [validation study](docs/validation.md),
-  [baseline noise](docs/baseline-noise.md), [decisions](docs/decisions.md)
-* [Adding a probe](docs/adding-probes.md), [contributing](CONTRIBUTING.md), [changelog](CHANGELOG.md)
-* Sample report from the validation study (Q4_K_M flagged): [HTML](docs/sample-report-deviation.html), [Markdown](docs/sample-report-deviation.md)
-* Sample report of a correct deployment (BF16, calibrated): [HTML](docs/sample-report-pass.html), [Markdown](docs/sample-report-pass.md)
-* Terminal demo (honest BF16 server vs Q2_K, recorded from real runs): [docs/demo.cast](docs/demo.cast) (play with `asciinema play docs/demo.cast`), script [docs/demo.sh](docs/demo.sh)
-* CLI: `parity run | report | calibrate | list-probes | history | canary | inject-faults`
-* **Upgrade gates:** the repository is a GitHub Action ([action.yml](action.yml),
-  [example](docs/examples/upgrade-gate.yml)); a [Dockerfile](Dockerfile) is included.
-* **Canary mode:** `parity canary --interval 3600 --port 9108 ...` runs the suite on a schedule
-  and serves Prometheus metrics (`parity_verdict`, `parity_probe_status`, ...).
-* Secrets are read from environment variables only (`--api-key-env NAME`) and are never written
-  to reports; target URLs are stored without credentials or query strings.
+<details>
+<summary><b>More ways to run it: Python API, Docker, canary with Prometheus</b></summary>
+
+**Python API**
+
+```python
+import parity
+
+reference = parity.hf_reference(
+    "Qwen/Qwen3-0.6B", revision="c1899de289a04d12100db370d81485cdf75e47ca"
+)
+target = parity.Target("http://localhost:8081", "qwen3")
+report = parity.Suite(name="core").run(target, reference)
+print(report.verdict, report.exit_code)
+```
+
+**Docker**: a [Dockerfile](Dockerfile) with CPU PyTorch is included
+(`docker build -t parity .`; `--build-arg WITH_REFERENCE=0` for a small image that uses a URL reference).
+
+**Canary mode**: `parity canary --interval 3600 --port 9108 ...` runs the suite on a schedule and
+serves Prometheus metrics (`parity_verdict`, `parity_probe_status`, ...).
+
+**CLI**: `parity run | report | calibrate | list-probes | history | canary | inject-faults`.
+Secrets are read from environment variables only (`--api-key-env NAME`) and never written to
+reports; target URLs are stored without credentials or query strings.
+
+</details>
+
+## Limits (read these)
+
+> [!IMPORTANT]
+> A report is evidence about *behaviour on these probes*, not a certificate.
+
+- **PASS is not proof of identity.** It means no difference beyond the calibrated benign variation
+  was found at this sample size. Smaller differences, and behaviour the probes do not exercise
+  (other languages, long documents, safety behaviour), can remain.
+- **DEVIATION is not an accusation.** It cannot tell a different checkpoint from a quantization, a
+  template bug or a serving bug, and it says nothing about intent.
+- **The reference is an implementation, not ground truth.** Two correct implementations differ
+  numerically. A legitimate variant outside the calibrated family (other hardware or kernels) can
+  look like a deviation.
+- **KL is a lower bound** (truncated top-k), so the true divergence can be larger.
+- **Capabilities gate power.** Endpoints without token-id prompts or log-probs skip the
+  distribution, greedy and sampler probes; the report says so.
+- **Validated scope.** Live validation so far: one small model (Qwen3-0.6B) on llama.cpp. The vLLM
+  and generic OpenAI adapters are built from documented formats and tested with fixtures only. The
+  tool probe has little statistical power with its current prompt set. The shipped corpus is small
+  and mostly English. Full list: [methodology](docs/methodology.md#7-known-limitations).
+
+## Documentation
+
+| | |
+|---|---|
+| 📐 [Methodology](docs/methodology.md) | Every statistical procedure and where it can mislead |
+| 🧪 [Validation study](docs/validation.md) | Controls, injected faults, raw data in [docs/data](docs/data) |
+| 📉 [Baseline noise](docs/baseline-noise.md) | How much two correct deployments differ |
+| 🧭 [Decisions](docs/decisions.md) | Non-obvious choices, recorded as they were made |
+| 🧱 [Adding a probe](docs/adding-probes.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) | |
+| 📄 Sample reports | Q4_K_M flagged: [HTML](docs/sample-report-deviation.html) · [Markdown](docs/sample-report-deviation.md). Correct BF16 deployment: [HTML](docs/sample-report-pass.html) · [Markdown](docs/sample-report-pass.md) |
+| 🎬 Terminal demo | Honest BF16 server vs Q2_K, recorded from real runs: [docs/demo.cast](docs/demo.cast) (`asciinema play docs/demo.cast`) |
 
 ## License
 
-Apache-2.0
+[Apache-2.0](LICENSE)
