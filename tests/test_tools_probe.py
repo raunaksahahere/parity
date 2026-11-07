@@ -241,3 +241,35 @@ def test_sign_test_and_min_detectable() -> None:
     assert sign_test(0, 5) == 1.0
     assert sign_test(10, 0) == pytest.approx(0.5**10)
     assert min_detectable(24, 0.1, 0.01) >= min_detectable(24, 0.1, 0.05)
+
+
+async def test_requests_are_concurrent_but_bounded_by_the_client(toy_kit: TokenizerKit) -> None:
+    """140 independent requests must not run one at a time (they dominate study run time), and
+    must never exceed the client's concurrency limit."""
+    import asyncio
+
+    inner = llamacpp_like()
+    state = {"now": 0, "peak": 0}
+
+    class Slow(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+            state["now"] += 1
+            state["peak"] = max(state["peak"], state["now"])
+            await asyncio.sleep(0.002)
+            state["now"] -= 1
+            resp = inner.handle_request(request)
+            await resp.aread()
+            return httpx.Response(resp.status_code, content=resp.content, headers=resp.headers)
+
+    async with EndpointClient("http://x", transport=Slow(), max_concurrency=4) as c:
+        ctx = ProbeContext(
+            client=c,
+            adapter=get_adapter("llamacpp"),
+            model="m",
+            kit=toy_kit,
+            reference=ScriptedReference(toy_kit),
+            options={"template_kwargs": {}},
+        )
+        res = await ToolsProbe().run(ctx)
+    assert res.status is Status.PASS
+    assert state["peak"] == 4

@@ -206,7 +206,27 @@ tool_calls; the model's own `<tool_call>` markup stays in the content). Strict
 * Suite data moved to `core-v2` (only `tools.json` changed); `core-v1` is kept verbatim so v0.1.0
   results stay reproducible with `options={"suite": "core-v1"}`.
 
-## D16. Ollama 0.33.2: what its OpenAI-compatible API offers (v0.2.0)
+## D16. v0.1.1-rc2: concurrent tool and long-context requests (study restarted)
+The first evaluation attempt with `v0.1.1-rc1` was stopped after three rows: on the CPU one full
+suite took 1865 s, 1069 s of it in the tools probe, because its 140 independent requests were
+sent one at a time while the server had four slots (GPU: 143 s of 530 s). The long-context
+probe's nine requests were sequential too (CPU 305 s). rc2 sends each section's independent
+requests concurrently, bounded by the client's existing concurrency limit (a regression test
+checks requests overlap and never exceed it); requests refused by the budget cap are no longer
+counted as sent. Measured on the development deployment: tools 34 s instead of 74-143 s,
+long-context 22 s instead of 72 s, identical honest result (0 of 96 trigger disagreements).
+Statistics, prompts and probe versions are unchanged; greedy replies can differ from sequential
+ones only through batch-composition numerics, which is the benign variation calibration and
+the controls measure. Because the code changed, the study was restarted from calibration with
+`v0.1.1-rc2`; the three rc1 rows and their calibration are kept as
+`docs/data/v0.1.1-rc1-aborted-*`. The study also lost two runs to hard power-offs of the laptop
+(battery at 0% and not charging; the hottest sensor read 94 C after one of them); results are
+appended per run, so it resumed without losing completed rows.
+To keep the study within about a day, CPU repetitions were reduced (CPU controls 2 runs each,
+CPU fault twins 1 run each; `scripts/run_v011_study.sh`). Repetition counts are not part of
+the study fingerprint.
+
+## D17. Ollama 0.33.2: what its OpenAI-compatible API offers (v0.2.0)
 Measured with `scripts/ollama_capabilities.py` (raw answers in
 `docs/data/v0.2.0-ollama-capabilities-*.json`) on models created from the same verified GGUF
 files used with llama.cpp (Qwen3-0.6B BF16, SmolLM2-360M-Instruct F16), with the chat template,

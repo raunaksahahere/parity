@@ -16,11 +16,12 @@ accounting problem never yields DEVIATION on its own; it yields INCONCLUSIVE.
 
 from __future__ import annotations
 
+import asyncio
 import random
 from dataclasses import dataclass
 from typing import Any
 
-from parity.client import EndpointError
+from parity.client import BudgetExhaustedError, EndpointError
 from parity.probes.base import Finding, Probe, ProbeContext, ProbeResult, Status
 
 DEPTHS = (("start", 0.03), ("middle", 0.5), ("end", 0.97))
@@ -124,33 +125,40 @@ class LongContextProbe(Probe):
         table: dict[str, dict[str, Any]] = {}
         diffs: dict[str, int] = {}  # key -> local count minus server count
 
-        for length in lengths:
-            for depth, frac in DEPTHS:
-                case = build_case(ctx, length, depth, frac, ctx.seed, template_kwargs)
-                key = f"{length}/{depth}"
-                n_requests += 1
-                try:
-                    data = await ctx.chat(
-                        case.messages,
-                        max_tokens=24,
-                        temperature=0.0,
-                        chat_template_kwargs=template_kwargs,
-                    )
-                except EndpointError as exc:
-                    table[key] = {"error": str(exc)[:160], "local": case.local_tokens}
-                    hard.append(
-                        f"{key}: request of {case.local_tokens} tokens rejected although the "
-                        f"claimed window is {claimed}: {str(exc)[:100]}"
-                    )
-                    continue
-                server_tokens = (data.get("usage") or {}).get("prompt_tokens")
-                content = ((data.get("choices") or [{}])[0].get("message") or {}).get(
-                    "content"
-                ) or ""
-                found = case.answer in content
-                table[key] = {"local": case.local_tokens, "server": server_tokens, "found": found}
-                if server_tokens is not None:
-                    diffs[key] = case.local_tokens - server_tokens
+        cases = [
+            (f"{length}/{depth}", build_case(ctx, length, depth, frac, ctx.seed, template_kwargs))
+            for length in lengths
+            for depth, frac in DEPTHS
+        ]
+
+        async def send(case: Any) -> Any:
+            try:
+                return await ctx.chat(
+                    case.messages,
+                    max_tokens=24,
+                    temperature=0.0,
+                    chat_template_kwargs=template_kwargs,
+                )
+            except EndpointError as exc:
+                return exc
+
+        # independent requests: sent concurrently, bounded by the client's semaphore
+        replies = await asyncio.gather(*(send(case) for _, case in cases))
+        n_requests = sum(not isinstance(r, BudgetExhaustedError) for r in replies)
+        for (key, case), data in zip(cases, replies, strict=True):
+            if isinstance(data, EndpointError):
+                table[key] = {"error": str(data)[:160], "local": case.local_tokens}
+                hard.append(
+                    f"{key}: request of {case.local_tokens} tokens rejected although the "
+                    f"claimed window is {claimed}: {str(data)[:100]}"
+                )
+                continue
+            server_tokens = (data.get("usage") or {}).get("prompt_tokens")
+            content = ((data.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+            found = case.answer in content
+            table[key] = {"local": case.local_tokens, "server": server_tokens, "found": found}
+            if server_tokens is not None:
+                diffs[key] = case.local_tokens - server_tokens
 
         hard.extend(diagnose_accounting(diffs))
 

@@ -1,6 +1,6 @@
 """Ollama adapter (OpenAI-compatible ``/v1`` API of an Ollama server).
 
-Verified against Ollama 0.33.2 (docs/data/v0.2.0-ollama-capabilities-*.json, decision D16):
+Verified against Ollama 0.33.2 (docs/data/v0.2.0-ollama-capabilities-*.json, decision D17):
 
 * ``/v1/completions`` rejects token-id prompts (HTTP 400) and returns no prompt log-probs, so
   the distribution, greedy and sampler probes are skipped and reports are marked lower power.

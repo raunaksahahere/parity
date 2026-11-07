@@ -31,13 +31,14 @@ reference only the deterministic checks run and the result is marked lower power
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from typing import Any
 
 from scipy import stats
 
-from parity.client import EndpointError
+from parity.client import BudgetExhaustedError, EndpointError
 from parity.probes.base import Finding, Probe, ProbeContext, ProbeResult, Status
 from parity.probes.template import rejects_tools, tools_change_render
 from parity.suites import DEFAULT_SUITE, load_json
@@ -150,14 +151,35 @@ class ToolsProbe(Probe):
 
         async def chat(msgs: list[dict[str, Any]], **params: Any) -> dict[str, Any]:
             nonlocal n_requests
+            try:
+                out = await ctx.chat(
+                    msgs,
+                    max_tokens=params.pop("max_tokens", max_tokens),
+                    temperature=0.0,
+                    chat_template_kwargs=tkw,
+                    **params,
+                )
+            except BudgetExhaustedError:
+                raise  # refused by the budget cap: never sent, not counted
+            except EndpointError:
+                n_requests += 1
+                raise
             n_requests += 1
-            return await ctx.chat(
-                msgs,
-                max_tokens=params.pop("max_tokens", max_tokens),
-                temperature=0.0,
-                chat_template_kwargs=tkw,
-                **params,
-            )
+            return out
+
+        async def batch(
+            calls: list[tuple[list[dict[str, Any]], dict[str, Any]]],
+        ) -> list[dict[str, Any] | EndpointError]:
+            """Send independent requests concurrently (the client's semaphore bounds how many
+            are in flight); responses come back in request order."""
+
+            async def one(msgs: list[dict[str, Any]], params: dict[str, Any]) -> Any:
+                try:
+                    return await chat(msgs, **params)
+                except EndpointError as exc:
+                    return exc
+
+            return list(await asyncio.gather(*(one(m, dict(p)) for m, p in calls)))
 
         def failed(exc: EndpointError, what: str) -> ProbeResult:
             return self.result(
@@ -186,15 +208,19 @@ class ToolsProbe(Probe):
         tgt_valid: list[bool | None] = []  # None: no call
         ref_valid: list[bool | None] = []
         calls_total = bad_calls = raw_markup = 0
-        for text in prompts:
+        auto: list[dict[str, Any] | EndpointError] = []
+        if prompts:
+            head = await batch([([{"role": "user", "content": prompts[0]}], {"tools": tools})])
+            if isinstance(head[0], EndpointError) and rejects_tools(head[0]):
+                skip_tools = f"the endpoint rejects tool definitions ({str(head[0])[:160]})"
+                prompts = []
+            else:
+                rest = [([{"role": "user", "content": t}], {"tools": tools}) for t in prompts[1:]]
+                auto = head + await batch(rest)
+        for text, data in zip(prompts, auto, strict=True):
             msgs = [{"role": "user", "content": text}]
-            try:
-                data = await chat(msgs, tools=tools)
-            except EndpointError as exc:
-                if not tgt_trigger and rejects_tools(exc):
-                    skip_tools = f"the endpoint rejects tool definitions ({str(exc)[:160]})"
-                    break
-                return failed(exc, "tool")
+            if isinstance(data, EndpointError):
+                return failed(data, "tool")
             msg, _ = _message(data)
             tcs = msg.get("tool_calls") or []
             if "<tool_call>" in (msg.get("content") or ""):
@@ -296,12 +322,12 @@ class ToolsProbe(Probe):
         # -- 2. tool_choice: "none" must never produce tool calls -----------------------------
         none_violations = 0
         none_prompts = [] if skip_tools else list(spec.get("tool_choice_none_prompts", []))
-        for text in none_prompts:
-            try:
-                data = await chat([{"role": "user", "content": text}], tools=tools,
-                                  tool_choice="none")  # fmt: skip
-            except EndpointError as exc:
-                findings.append(Finding(severity="warn", message=f"tool_choice=none: {exc}"))
+        for data in await batch(
+            [([{"role": "user", "content": t}], {"tools": tools, "tool_choice": "none"})
+             for t in none_prompts]
+        ):  # fmt: skip
+            if isinstance(data, EndpointError):
+                findings.append(Finding(severity="warn", message=f"tool_choice=none: {data}"))
                 continue
             msg, _ = _message(data)
             none_violations += bool(msg.get("tool_calls"))
@@ -316,11 +342,11 @@ class ToolsProbe(Probe):
         # -- 3. tool_choice: "required" (capability, not evidence) ----------------------------
         req_prompts = [] if skip_tools else list(spec.get("tool_choice_required_prompts", []))
         honored = 0
-        for text in req_prompts:
-            try:
-                data = await chat([{"role": "user", "content": text}], tools=tools,
-                                  tool_choice="required")  # fmt: skip
-            except EndpointError:
+        for data in await batch(
+            [([{"role": "user", "content": t}], {"tools": tools, "tool_choice": "required"})
+             for t in req_prompts]
+        ):  # fmt: skip
+            if isinstance(data, EndpointError):
                 continue
             msg, _ = _message(data)
             honored += bool(msg.get("tool_calls"))
@@ -338,19 +364,15 @@ class ToolsProbe(Probe):
         ok_t: list[bool] = []
         ok_r: list[bool] = []
         broken_stop = 0
-        for text in spec["json_texts"]:
-            msgs = [{"role": "user", "content": spec["json_instruction"] + text}]
-            try:
-                data = await chat(
-                    msgs,
-                    max_tokens=120,
-                    response_format={
-                        "type": "json_schema",
-                        "json_schema": {"name": "person", "schema": schema, "strict": True},
-                    },
-                )
-            except EndpointError as exc:
-                findings.append(Finding(severity="warn", message=f"json request failed: {exc}"))
+        fmt = {"type": "json_schema", "json_schema": {"name": "person", "schema": schema,
+                                                       "strict": True}}  # fmt: skip
+        json_msgs = [
+            [{"role": "user", "content": spec["json_instruction"] + t}] for t in spec["json_texts"]
+        ]
+        replies = await batch([(m, {"max_tokens": 120, "response_format": fmt}) for m in json_msgs])
+        for msgs, data in zip(json_msgs, replies, strict=True):
+            if isinstance(data, EndpointError):
+                findings.append(Finding(severity="warn", message=f"json request failed: {data}"))
                 continue
             msg, finish = _message(data)
             val = parse_json_text(msg.get("content") or "")
