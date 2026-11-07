@@ -121,3 +121,14 @@ finished `control-gpu-p1-smallbatch` was discarded (raw rows kept as
 `control-gpu-p2` and the three quantizations. Each scenario is internally consistent. Disabling
 a cache is a benign deployment difference, which is the kind of variation the held-out controls
 exist to test; `LlamaServerConfig.cache_ram_mib` exposes the setting.
+
+## D13. Sampler probe v3: every sample judged against its own response (found by run 2)
+The second validation run showed sampler v2 still flagging Q2_K in 1 of 3 repetitions, now
+for `top_k=5` (2.0% of samples ranked 6th or worse). Measured directly: Q2_K's reported
+log-probs differ by up to 0.058 nats between *identical* requests (BF16: 0.0016), while that
+context's 5th/6th gap was 0.077 nats, so no fixed guard threshold is safe. llama.cpp reports the
+raw temperature-1 distribution in every response regardless of the sampler settings (verified),
+so v3 checks each sample's support membership against its own response and runs the G-test
+against the mixture of the per-sample distributions. Expected distributions no longer depend on
+a separate fetch. Re-validated on the GPU with a sampler-only run (subset runs keep the
+probe's full-suite alpha share): see docs/validation.md.

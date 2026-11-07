@@ -1,19 +1,32 @@
 """Insert generated validation tables into README.md and docs/validation.md.
 
-Usage: uv run python scripts/update_result_docs.py runs/validation-v2 [runs/validation]
-The first directory is the published run; the optional second is the earlier run (sampler v1)
-shown as an appendix. Numbers are never typed by hand: everything comes from results.jsonl.
+Usage:
+  uv run python scripts/update_result_docs.py --main runs/validation-v2 \
+      [--v1 runs/validation] [--sampler runs/validation-sampler-v3]
+
+--main is the published full study, --v1 the first run (appendix), --sampler the sampler-only
+re-validation. Numbers are never typed by hand: everything comes from results.jsonl files.
 """
 
-import sys
+import argparse
 from pathlib import Path
 
 from parity.faults.study import load_results
-from parity.faults.summary import splice, summarize, to_markdown, to_readme_table
+from parity.faults.summary import (
+    splice,
+    summarize,
+    to_markdown,
+    to_readme_table,
+    to_sampler_table,
+)
 
-main_dir = Path(sys.argv[1] if len(sys.argv) > 1 else "runs/validation-v2")
-summary = summarize(load_results(main_dir / "results.jsonl"))
+ap = argparse.ArgumentParser()
+ap.add_argument("--main", type=Path, required=True)
+ap.add_argument("--v1", type=Path)
+ap.add_argument("--sampler", type=Path)
+ns = ap.parse_args()
 
+summary = summarize(load_results(ns.main / "results.jsonl"))
 readme = Path("README.md")
 readme.write_text(
     splice(
@@ -27,8 +40,11 @@ readme.write_text(
 )
 val = Path("docs/validation.md")
 text = splice(val.read_text(), "TABLES", to_markdown(summary))
-if len(sys.argv) > 2:
-    v1 = summarize(load_results(Path(sys.argv[2]) / "results.jsonl"))
-    text = splice(text, "TABLES_V1", to_markdown(v1))
+if ns.v1:
+    text = splice(text, "TABLES_V1", to_markdown(summarize(load_results(ns.v1 / "results.jsonl"))))
+if ns.sampler:
+    text = splice(
+        text, "TABLES_SAMPLER_V3", to_sampler_table(load_results(ns.sampler / "results.jsonl"))
+    )
 val.write_text(text)
 print("updated README.md and docs/validation.md")

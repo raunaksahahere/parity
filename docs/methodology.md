@@ -95,11 +95,16 @@ log(β/(1−α)) bounds the miss rate approximately, since the walk can overshoo
 
 Question: do temperature, `top_k` and `top_p` do what the API says?
 
-**Expected distribution.** For each of up to two high-entropy contexts, the target is asked for
-its own temperature-1, untruncated top-1000 log-probs. The expected distribution under a sampler
-setting is derived *from that*, not from the reference: a quantized model's slightly different
-logits therefore cannot be blamed on the sampler. Contexts whose reported log-probs cover less
-than 90% of the mass are skipped.
+**Expected distribution: each sample's own forward pass.** Every sampling request also asks
+for the top-50 log-probs, and the server reports, in the same response, the temperature-1,
+untruncated distribution the sample was drawn from (verified for llama.cpp: the reported
+log-probs do not change with the request's temperature, `top_k` or `top_p`). Each sample is
+judged against *that* distribution, never against a separately fetched one, because the server's
+log-probs jitter between requests: on Qwen3-0.6B Q2_K, identical requests differed by up to 0.058
+nats (BF16: 0.0016), as much as the gap between neighbouring tokens. Using the target's own
+log-probs also means a quantized model's different logits cannot be blamed on the sampler. A
+separate temperature-1 top-1000 fetch is used only to choose contexts (at least 90% of mass
+reported, highest entropy first) and to place `top_p`.
 
 **Order independence.** llama.cpp truncates (`top_k`, `top_p`) *before* applying temperature,
 while Hugging Face and vLLM apply temperature first. For `top_p` with T≠1 the two orders give
@@ -109,23 +114,34 @@ expected distribution under both orders.
 
 **Tests (per case, after pooling both contexts).**
 
-* *Violations*: samples outside the expected support (for example a token ranked below `top_k`).
-  Under H0 the rate is ≈ 0; a one-sided binomial test against a small numerical tolerance
-  (1e-3) gives p. Run only for truncating cases: without truncation, mass legitimately moves
-  beyond the provider's reported top-k at T>1 (an earlier version flagged exactly this on a
-  real server; see `tests/test_sampler_probe.py`).
-* *G-test* (log-likelihood ratio, Williams-corrected, small cells pooled to expected ≥ 5) of the
-  in-support samples against the expected conditional distribution. G statistics from
-  independent contexts add. This conditional test is exact for any T because the normalizer
-  cancels within the reported set.
+* *Violations*: a sample outside the support that the settings allow *in its own response's
+  distribution* (for example ranked below `top_k` there). Under H0 the rate is ≈ 0; a one-sided
+  binomial test against a small numerical tolerance (1e-3) gives p. Samples whose response does
+  not determine the support (too few tokens reported, nucleus not closed within the report) are
+  not counted. Run only for truncating cases: without truncation, mass legitimately moves beyond
+  the reported top-k at T>1.
+* *G-test* (log-likelihood ratio, Williams-corrected, small cells pooled to expected ≥ 5).
+  Conditional on landing in its own response's support, each sample follows that response's
+  truncated, temperature-scaled, renormalized distribution exactly; the observed tokens are
+  compared with the sum of those per-sample distributions (a mixture). Counts are then
+  Poisson-binomial rather than multinomial, which makes the test slightly conservative. G
+  statistics from independent contexts add.
 * *Effect size*: plug-in total variation is biased upward by roughly √(cells/n), so the effect
   is the TV *minus its expectation under H0* (simulated). A deviation also needs the excess TV
   ≥ 0.03 or the violation rate ≥ 1%, i.e. practical as well as statistical significance.
 
 Sampling is sequential at 100/250/500 draws per context with Bonferroni spending over looks and
-tests, so a gross bug (ignored `top_k`) stops at the first look. Cases where the truncation
-boundary sits on near-tied tokens, or where little mass lies beyond the truncation, are skipped
-or flagged with their reduced detection power.
+tests, so a gross bug (ignored `top_k`) stops at the first look. `top_p` is placed per context
+at the midpoint between two consecutive cumulative masses (closest to the nominal 0.6), so the
+chosen nucleus is well defined. Cases where little mass lies beyond the truncation are flagged
+with their reduced detection power.
+
+*History.* This design is the third version. v1 compared samples with one fetched distribution
+and guarded only log-prob gaps at `top_k` boundaries; on a Q2_K server it reported a `top_p`
+violation caused by jitter. v2 placed `top_p` away from cumulative-mass boundaries; it then
+reported a `top_k=5` violation, again from jitter larger than the guard. v3 removes the shared
+reference altogether. Both failures were found by the validation study and are reproduced by
+regression tests ([validation.md](validation.md)).
 
 ### 2.5 Long-context integrity (`longctx.needle`)
 

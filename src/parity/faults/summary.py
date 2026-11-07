@@ -161,3 +161,35 @@ def splice(text: str, marker: str, body: str) -> str:
     begin, end = f"<!-- {marker}:BEGIN -->", f"<!-- {marker}:END -->"
     i, j = text.index(begin) + len(begin), text.index(end)
     return text[:i] + "\n" + body + text[j:]
+
+
+SAMPLER_FAULTS = frozenset(
+    {
+        "fault-topk-ignored",
+        "fault-topp-ignored",
+        "fault-temperature-ignored",
+        "fault-temperature-x1.5",
+    }
+)
+
+
+def to_sampler_table(rows: list[dict[str, Any]]) -> str:
+    """Sampler-only re-validation: does the sampler probe flag exactly the sampler faults?"""
+    by_sc: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in rows:
+        by_sc[r["scenario"]].append(r)
+    out = [
+        "| Scenario | Sampler fault? | Should report | Reps | Sampler DEVIATION | "
+        "Median sampler requests | Median seconds |",
+        "|---|---|---|---:|---:|---:|---:|",
+    ]
+    for name, rs in by_sc.items():
+        is_fault = name in SAMPLER_FAULTS
+        flagged = sum(r["probe_status"].get("sampler.conformance") == "DEVIATION" for r in rs)
+        req = statistics.median(r["probe_requests"].get("sampler.conformance", 0) for r in rs)
+        out.append(
+            f"| {name} | {'yes' if is_fault else 'no'} | {'DEVIATION' if is_fault else 'PASS'} | "
+            f"{len(rs)} | {flagged}/{len(rs)} | {req:.0f} | "
+            f"{statistics.median(r['seconds'] for r in rs):.0f} |"
+        )
+    return "\n".join(out) + "\n"
