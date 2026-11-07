@@ -8,7 +8,7 @@
 - [x] 6. Calibration, SPRT, Holm-Bonferroni, bootstrap
 - [x] 7. Greedy agreement, long-context, tool/JSON probes
 - [x] 8. Verdict logic, DuckDB history, HTML/Markdown/JSON reports, CLI polish
-- [ ] 9. Fault-injection harness and validation study (harness done; study running)
+- [x] 9. Fault-injection harness and validation study (two full runs + sampler v3 re-validation)
 - [ ] 10. GitHub Action, Dockerfile, Prometheus exporter, packaging (all written; wheel verified
       with pip in a clean venv; remaining: live `parity run` from the clean venv, docker build)
 - [ ] 11. Documentation (methodology, adding-probes, CONTRIBUTING, CHANGELOG, README draft done;

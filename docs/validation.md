@@ -122,7 +122,23 @@ should report DEVIATION exactly for the four sampler faults and PASS for everyth
 (quantization changes the model, not the sampler).
 
 <!-- TABLES_SAMPLER_V3:BEGIN -->
+| Scenario | Sampler fault? | Should report | Reps | Sampler DEVIATION | Median sampler requests | Median seconds |
+|---|---|---|---:|---:|---:|---:|
+| fault-quant-q2_k | no | PASS | 10 | 0/10 | 3504 | 36 |
+| fault-topk-ignored | yes | DEVIATION | 3 | 3/3 | 4904 | 82 |
+| fault-topp-ignored | yes | DEVIATION | 3 | 3/3 | 6204 | 98 |
+| fault-temperature-ignored | yes | DEVIATION | 3 | 3/3 | 4604 | 80 |
+| fault-temperature-x1.5 | yes | DEVIATION | 3 | 3/3 | 3304 | 58 |
+| fault-quant-q4_k_m | no | PASS | 3 | 0/3 | 7004 | 56 |
+| fault-quant-q8_0 | no | PASS | 3 | 0/3 | 7004 | 67 |
+| control-gpu-p1-smallbatch | no | PASS | 5 | 0/5 | 7004 | 98 |
+| control-gpu-p2 | no | PASS | 5 | 0/5 | 7004 | 98 |
 <!-- TABLES_SAMPLER_V3:END -->
+
+**Result.** Sampler v3 reported DEVIATION for all 12 sampler-fault repetitions and for none of the
+26 others (16 quantized deployments, 10 correct controls), testing all seven cases on Q2_K in every
+repetition. The first 12 repetitions ran with 4 concurrent requests, the rest with 2 and a 120 s
+cool-down because of laptop temperatures (decision D13); the seconds column mixes both.
 
 ## Interpretation
 

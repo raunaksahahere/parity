@@ -98,6 +98,8 @@ False positives on correct deployments (held-out controls): **0/23** runs (95% C
 | quant-q2_k | 3/3 | greedy, distribution, sampler (1/3) | 52 | 3359 | 80 s |
 | quant-q4_k_m | 3/3 | greedy, distribution | 52 | 6359 | 81 s |
 | quant-q8_0 | 3/3 | distribution | 355 | 6859 | 88 s |
+
+The `sampler (1/3)` on Q2_K was a misattribution by sampler v2 (numerical jitter between requests). Sampler v3, re-validated alone on the GPU deployments, reported DEVIATION on 12/12 sampler-fault repetitions and on 0/26 others, including 0/10 on Q2_K.
 <!-- RESULTS:END -->
 
 ## Limits of inference
