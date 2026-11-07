@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # The v0.1.1 evaluation study, exactly as run (docs/validation.md). Run from a checkout of the
-# frozen tag v0.1.1-rc1 with bin/, models/ and .parity-cache/ available.
+# frozen tag v0.1.1-rc2 with bin/, models/ and .parity-cache/ available:
 #
-# Phase 0 (already done in runs/v011-study when this script started): calibration on the
-# benign deployments and one repetition of fault-template-nosystem-cpu (1865 s: on the CPU the
-# tools probe alone takes ~18 minutes, so CPU repetitions were reduced to keep the study
-# within a day; repetition counts are not part of the study fingerprint).
+#   bash scripts/run_v011_study.sh /path/to/checkout
+#
+# The first invocation calibrates on the benign deployments (runs/v011-study/calibration.json);
+# later phases reuse that calibration after checking its compatibility. CPU repetitions are
+# reduced to keep the study within about a day (docs/decisions.md D17); repetition counts are
+# not part of the study fingerprint, so an interrupted run resumes with this same script.
 set -uo pipefail
 cd "${1:-.}"
 run() {
