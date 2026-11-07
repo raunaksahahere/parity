@@ -126,7 +126,47 @@ should report DEVIATION exactly for the four sampler faults and PASS for everyth
 
 ## Interpretation
 
-<!-- INTERPRETATION -->
+**False positives.** None of the 23 control runs (three held-out correct configurations:
+GPU with 2 slots, GPU with 1 slot and small batches, CPU with 1 slot and 4 threads) was flagged,
+and no individual probe raised a false flag. With 23 runs that bounds the false-positive rate at
+14.8% (95% upper limit); it does not show the rate equals the nominal 5%. The controls differ from
+the calibration deployments in slots, batch sizes, threads and (for part of the second run) the
+host prompt cache, so they test whether the calibrated thresholds generalize to unseen benign
+changes, not just repeats.
+
+**Detection.** All 11 faults were detected in 3 of 3 repetitions (with 3 repetitions the 95%
+lower limit is 29%; the point is that no fault was missed, not a precise power estimate).
+
+**Attribution.** The probes that fire match the cause, which is what lets a report say *how*
+behaviour differs:
+
+* Template faults are caught by the template probe (deterministic token-count mismatch) and by
+  the long-context probe's accounting, which since the second run correctly names a constant
+  offset as a template difference, not truncation. The distributional and greedy probes, which
+  use raw token-id prompts without a chat template, correctly stay silent.
+* Sampler faults are caught only by the sampler probe. Ignored temperature is also caught by the
+  greedy probe, because greedy (temperature 0) requests then sample at temperature 1.
+* Silent truncation and a reduced context window are caught only by long-context accounting
+  (fewer reported prompt tokens; rejection inside the claimed window).
+* Quantization is caught by the distributional probe in every repetition, including Q8_0, whose
+  measured KL lower bound (1.3e-3 nats, docs/data/distribution-live.json) is about 9x the
+  calibrated threshold (1.36e-4). The greedy probe catches Q2_K and Q4_K_M every time but is at
+  the edge of its power for Q8_0 (2/3 in the first run, 0/3 in the second): Q8_0's divergence
+  hazard (0.028) lies between the calibrated benign rate (0.016) and the SPRT's alternative
+  (0.079). Whether a near-lossless quantization *should* count as a deviation is a policy choice
+  expressed by the threshold; with thresholds calibrated on benign variation, Parity reports it.
+* The sampler column's 1/3 for Q2_K is a misattribution by sampler v2, explained and re-validated
+  in the next section; the verdict for that repetition was still a correct DEVIATION.
+* The tool probe flagged none of these faults. Its calibrated benign disagreement rate (0.28,
+  the Wilson upper bound of 0/24) leaves little power with 24 prompts; its useful checks here are
+  the deterministic ones (raw tool markup, invalid tool names, schema violations), which none of
+  these faults triggered. This is a real limit of v0.1.
+
+**Cost.** A correct deployment needs the full suite: about 6,900 requests, a median of 106-155 s
+on the RX 6500M and 659 s on the CPU. With `--fail-fast`, faults stop as soon as one probe
+decides: template faults after 7 requests, truncation and reduced context after 16, ignored
+temperature and Q2_K/Q4_K_M after 52, Q8_0 after 355 (one look of the distributional probe), and
+sampler faults after 2,800-6,600 (the sampler runs last because it is the most expensive).
 
 ## Appendix: first run (sampler probe v1)
 
