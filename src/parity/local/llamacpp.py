@@ -26,6 +26,36 @@ class ServerStartError(RuntimeError):
     pass
 
 
+DEVICE_LINE = re.compile(r"^\s*([A-Za-z]+\d+):\s*(.+?)\s*$")
+DEVICE_ID = re.compile(r"[A-Za-z]+\d+")
+
+
+def parse_devices(list_devices_output: str) -> dict[str, str]:
+    """Parse ``llama-server --list-devices`` into {"Vulkan1": "AMD Radeon RX 6500 (...)"}."""
+    out = {}
+    for line in list_devices_output.splitlines():
+        m = DEVICE_LINE.match(line)
+        if m:
+            out[m.group(1)] = m.group(2)
+    return out
+
+
+def pick_device(devices: dict[str, str], wanted: str) -> str:
+    """``wanted`` is a backend id ("Vulkan1") or a case-insensitive part of the device name
+    ("RX 6500"). Device indices depend on enumeration order, which can change across driver
+    updates or reboots, so selecting by name avoids silently landing on another GPU."""
+    if DEVICE_ID.fullmatch(wanted):
+        if wanted not in devices:
+            raise ServerStartError(f"device {wanted} not found; available: {devices}")
+        return wanted
+    hits = [d for d, desc in devices.items() if wanted.lower() in desc.lower()]
+    if len(hits) != 1:
+        raise ServerStartError(
+            f"expected exactly one device matching {wanted!r}, found {hits}; available: {devices}"
+        )
+    return hits[0]
+
+
 def free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -37,7 +67,8 @@ class LlamaServerConfig:
     binary: Path
     model: Path
     ctx_size: int = 4096
-    device: str | None = None  # e.g. "Vulkan1"; None means CPU only
+    # backend id ("Vulkan1") or part of the device name ("RX 6500"); None means CPU only
+    device: str | None = None
     n_gpu_layers: int = 99
     threads: int | None = None
     parallel: int = 1
@@ -62,6 +93,7 @@ class LlamaServer:
     _proc: subprocess.Popen[bytes] | None = field(default=None, init=False, repr=False)
     port: int = field(default=0, init=False)
     log_path: Path | None = field(default=None, init=False)
+    device_id: str | None = field(default=None, init=False)  # resolved backend id, e.g. Vulkan1
 
     @property
     def base_url(self) -> str:
@@ -86,7 +118,7 @@ class LlamaServer:
             "4",
         ]
         if c.uses_gpu:
-            cmd += ["--device", str(c.device), "-ngl", str(c.n_gpu_layers)]
+            cmd += ["--device", str(self.device_id or c.device), "-ngl", str(c.n_gpu_layers)]
         else:
             cmd += ["--device", "none", "-ngl", "0"]
         if c.threads:
@@ -110,6 +142,18 @@ class LlamaServer:
         log = self.log_path.open("wb")
         env = dict(os.environ)
         env["LD_LIBRARY_PATH"] = f"{c.binary.resolve().parent}:{env.get('LD_LIBRARY_PATH', '')}"
+        if c.uses_gpu:
+            listing = subprocess.run(
+                [str(c.binary.resolve()), "--list-devices"],
+                cwd=c.binary.resolve().parent,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            self.device_id = pick_device(
+                parse_devices(listing.stdout + listing.stderr), str(c.device)
+            )
         self._proc = subprocess.Popen(
             self._command(),
             cwd=c.binary.resolve().parent,

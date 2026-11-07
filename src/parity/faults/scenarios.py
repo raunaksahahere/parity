@@ -13,7 +13,8 @@ from parity.faults.proxy import (
 )
 from parity.local.llamacpp import LlamaServerConfig
 
-GPU_DEVICE = "Vulkan1"  # RX 6500M; Vulkan0 is the integrated GPU and is never used
+# selected by name, not index: Vulkan enumeration order (iGPU first here) is not guaranteed
+GPU_DEVICE = "RX 6500"
 CLAIMED_CONTEXT = 4096  # context the deployments are supposed to offer per request
 
 

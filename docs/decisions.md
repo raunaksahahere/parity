@@ -24,8 +24,11 @@ loaded no GPU backend and silently ran on CPU (observed: 654 MB RSS, 6 threads, 
 lines in the log). Note: the sysfs `mem_info_vram_used` counter is NOT a reliable indicator
 here (it reads ~16 MiB even with the model on the GPU); the server log line is. `parity.local.llamacpp` launches with the binary's directory
 as cwd and asserts "offloaded N/M layers to GPU" from the log, failing loudly
-otherwise. Pinned build: llama.cpp b12128. GPU for study runs: `Vulkan1`
-(RX 6500M); `Vulkan0` is the integrated Vega and is never used.
+otherwise. Pinned build: llama.cpp b12128. GPU for study runs: the RX 6500M, which the
+Vulkan loader lists as `Vulkan1` (the integrated Radeon that drives the display is `Vulkan0`).
+The index is not guaranteed across driver updates or reboots, so the launcher selects the GPU
+by name (`device="RX 6500"`, resolved from `llama-server --list-devices`, exactly one match
+required) instead of trusting the index.
 
 ## D4. Model provenance
 - Reference weights: `Qwen/Qwen3-0.6B` revision `c1899de289a04d12100db370d81485cdf75e47ca`
