@@ -67,3 +67,26 @@ def test_legacy_style_parsing_sorts_top_and_keeps_none() -> None:
 def test_unknown_adapter_is_a_clear_error() -> None:
     with pytest.raises(ValueError, match="choose from"):
         get_adapter("nope")
+
+
+@pytest.mark.parametrize(
+    ("routes", "expected"),
+    [
+        ({"/props": {"default_generation_settings": {}}}, "llamacpp"),
+        ({"/api/version": {"version": "0.33.2"}}, "ollama"),
+        ({"/version": {"version": "0.11.0"}}, "vllm"),
+        ({}, "openai"),
+    ],
+)
+async def test_server_detection(routes: dict, expected: str) -> None:  # type: ignore[type-arg]
+    import httpx
+
+    from parity.client import EndpointClient
+    from parity.detect import detect_adapter
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = routes.get(request.url.path)
+        return httpx.Response(200, json=body) if body is not None else httpx.Response(404)
+
+    async with EndpointClient("http://h:1", transport=httpx.MockTransport(handler)) as c:
+        assert await detect_adapter(c) == expected

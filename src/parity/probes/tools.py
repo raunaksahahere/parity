@@ -39,6 +39,7 @@ from scipy import stats
 
 from parity.client import EndpointError
 from parity.probes.base import Finding, Probe, ProbeContext, ProbeResult, Status
+from parity.probes.template import rejects_tools, tools_change_render
 from parity.suites import DEFAULT_SUITE, load_json
 
 DEFAULT_DISAGREEMENT = 0.10
@@ -129,7 +130,7 @@ def _message(data: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
 class ToolsProbe(Probe):
     id = "tools.structured"
     family = "tools"
-    version = "2"
+    version = "3"
 
     async def run(self, ctx: ProbeContext) -> ProbeResult:
         opts = ctx.options
@@ -150,8 +151,7 @@ class ToolsProbe(Probe):
         async def chat(msgs: list[dict[str, Any]], **params: Any) -> dict[str, Any]:
             nonlocal n_requests
             n_requests += 1
-            return await ctx.client.chat(
-                ctx.model,
+            return await ctx.chat(
                 msgs,
                 max_tokens=params.pop("max_tokens", max_tokens),
                 temperature=0.0,
@@ -166,8 +166,21 @@ class ToolsProbe(Probe):
                 findings=[Finding(severity="warn", message=f"{what} request failed: {exc}")],
             )
 
+        # Tool calling is only comparable when the model's official template defines a tool
+        # format and the endpoint accepts tool definitions; otherwise the tool sections are
+        # skipped (with the reason) and only structured output is tested.
+        skip_tools: str | None = None
+        first = [{"role": "user", "content": spec["trigger_prompts"][0]}]
+        if not tools_change_render(ctx.kit, first, tools, **tkw):
+            skip_tools = (
+                "the official chat template has no tool format, so there is no reference tool "
+                "behaviour to compare"
+            )
+
         # -- 1. tool_choice auto: trigger agreement and call validity ------------------------
         prompts = list(spec["trigger_prompts"]) + list(spec["plain_prompts"])
+        if skip_tools:
+            prompts = []
         tgt_trigger: list[bool] = []
         ref_trigger: list[bool] = []
         tgt_valid: list[bool | None] = []  # None: no call
@@ -178,6 +191,9 @@ class ToolsProbe(Probe):
             try:
                 data = await chat(msgs, tools=tools)
             except EndpointError as exc:
+                if not tgt_trigger and rejects_tools(exc):
+                    skip_tools = f"the endpoint rejects tool definitions ({str(exc)[:160]})"
+                    break
                 return failed(exc, "tool")
             msg, _ = _message(data)
             tcs = msg.get("tool_calls") or []
@@ -201,12 +217,17 @@ class ToolsProbe(Probe):
                       for c in ref_calls]  # fmt: skip
                 ref_valid.append(all(rv) if rv else None)
 
-        metrics.update(
-            tool_calls=float(calls_total),
-            invalid_tool_calls=float(bad_calls),
-            raw_tool_markup_in_content=float(raw_markup),
-            target_trigger_rate=sum(tgt_trigger) / len(tgt_trigger),
-        )
+        if skip_tools:
+            prompts, tgt_trigger, ref_trigger, tgt_valid, ref_valid = [], [], [], [], []
+            notes.append(f"tool-call checks skipped: {skip_tools}")
+            metrics["tool_checks_skipped"] = 1.0
+        else:
+            metrics.update(
+                tool_calls=float(calls_total),
+                invalid_tool_calls=float(bad_calls),
+                raw_tool_markup_in_content=float(raw_markup),
+                target_trigger_rate=sum(tgt_trigger) / len(tgt_trigger),
+            )
         p_values: list[float] = []
         if raw_markup:
             hard.append(
@@ -214,8 +235,8 @@ class ToolsProbe(Probe):
                 "instead of structured tool_calls (tool parsing is not enabled or the template "
                 "differs)"
             )
-        effect = 0.0
-        if has_ref:
+        effect: float | None = None if skip_tools else 0.0
+        if has_ref and not skip_tools:
             n = len(prompts)
             pairs = list(zip(tgt_trigger, ref_trigger, strict=True))
             disagree = sum(a != b for a, b in pairs)
@@ -261,7 +282,7 @@ class ToolsProbe(Probe):
                         f"prompts vs {c} the other way (p={p_valid:.3g})",
                     )
                 )
-        else:
+        elif not has_ref:
             notes.append("no reference: only the deterministic checks ran (lower power)")
             if bad_calls:
                 findings.append(
@@ -274,7 +295,7 @@ class ToolsProbe(Probe):
 
         # -- 2. tool_choice: "none" must never produce tool calls -----------------------------
         none_violations = 0
-        none_prompts = list(spec.get("tool_choice_none_prompts", []))
+        none_prompts = [] if skip_tools else list(spec.get("tool_choice_none_prompts", []))
         for text in none_prompts:
             try:
                 data = await chat([{"role": "user", "content": text}], tools=tools,
@@ -293,7 +314,7 @@ class ToolsProbe(Probe):
             )
 
         # -- 3. tool_choice: "required" (capability, not evidence) ----------------------------
-        req_prompts = list(spec.get("tool_choice_required_prompts", []))
+        req_prompts = [] if skip_tools else list(spec.get("tool_choice_required_prompts", []))
         honored = 0
         for text in req_prompts:
             try:
@@ -370,6 +391,14 @@ class ToolsProbe(Probe):
         deviating = any(f.severity == "deviation" for f in findings)
         p_final = min(1.0, min(p_values) * N_TESTS) if p_values else None
         status = Status.DEVIATION if deviating else Status.PASS
+        if skip_tools and not ok_t:
+            return self.result(
+                Status.SKIPPED,
+                n_requests=n_requests,
+                metrics=metrics,
+                findings=findings,
+                notes=[*notes, "structured output could not be tested either"],
+            )
         if not findings:
             findings.append(
                 Finding(severity="info", message="tool and structured-output behaviour matches")
@@ -381,7 +410,7 @@ class ToolsProbe(Probe):
             effect=effect,
             effect_unit="tool-trigger disagreement rate",
             n_requests=n_requests,
-            power="normal" if has_ref else "lower",
+            power="normal" if has_ref and not skip_tools else "lower",
             metrics=metrics,
             findings=findings,
             notes=[

@@ -274,11 +274,12 @@ async def test_results_of_an_older_probe_version_are_rejected(
     ep = FakeEndpoint(toy_kit, seed=10)
     suite, target, ref = setup(toy_kit, ep, probes=CHEAP)
     await suite.arun(target, ref, out_dir=tmp_path, run_id="r")
+    saved_version = TemplateProbe.version
     monkeypatch.setattr(TemplateProbe, "version", "99")
     with pytest.raises(ResumeError) as err:
         await suite.arun(target, ref, out_dir=tmp_path, run_id="r", resume=True)
     assert "probe_versions.template.token_counts" in str(err.value)
-    assert "version 1 of the probe" in str(err.value)
+    assert f"version {saved_version} of the probe" in str(err.value)
 
 
 async def test_runs_without_a_manifest_cannot_be_resumed(

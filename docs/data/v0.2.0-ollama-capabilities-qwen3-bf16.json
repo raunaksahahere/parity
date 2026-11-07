@@ -1,0 +1,624 @@
+{
+ "version": {
+  "version": "0.33.2"
+ },
+ "chat_usage": {
+  "status": 200,
+  "result": {
+   "usage": {
+    "prompt_tokens": 18,
+    "completion_tokens": 8,
+    "total_tokens": 26
+   },
+   "msg": {
+    "role": "assistant",
+    "content": "<think>\nOkay, the user just said"
+   }
+  }
+ },
+ "chat_logprobs": {
+  "status": 200,
+  "result": {
+   "content": [
+    {
+     "token": "<think>",
+     "logprob": -0.0001721530279610306,
+     "bytes": [
+      60,
+      116,
+      104,
+      105,
+      110,
+      107,
+      62
+     ],
+     "top_logprobs": [
+      {
+       "token": "<think>",
+       "logprob": -0.0001721530279610306,
+       "bytes": [
+        60,
+        116,
+        104,
+        105,
+        110,
+        107,
+        62
+       ]
+      },
+      {
+       "token": "",
+       "logprob": -10.475117683410645
+      },
+      {
+       "token": "</think>",
+       "logprob": -11.270023345947266,
+       "bytes": [
+        60,
+        47,
+        116,
+        104,
+        105,
+        110,
+        107,
+        62
+       ]
+      },
+      {
+       "token": "",
+       "logprob": -11.39860725402832
+      },
+      {
+       "token": "iquement",
+       "logprob": -11.609103202819824,
+       "bytes": [
+        105,
+        113,
+        117,
+        101,
+        109,
+        101,
+        110,
+        116
+       ]
+      }
+     ]
+    },
+    {
+     "token": "\n",
+     "logprob": 0,
+     "bytes": [
+      10
+     ],
+     "top_logprobs": [
+      {
+       "token": "\n",
+       "logprob": 0,
+       "bytes": [
+        10
+       ]
+      },
+      {
+       "token": "\n\n",
+       "logprob": -17.756752014160156,
+       "bytes": [
+        10,
+        10
+       ]
+      },
+      {
+       "token": "\r\n",
+       "logprob": -18.395544052124023,
+       "bytes": [
+        13,
+        10
+       ]
+      },
+      {
+       "token": "\u8bf7\u6559",
+       "logprob": -20.44060516357422,
+       "bytes": [
+        232,
+        175,
+        183,
+        230,
+        149,
+        153
+       ]
+      },
+      {
+       "token": "\u8001\u5e08",
+       "logprob": -21.41046714782715,
+       "bytes": [
+        232,
+        128,
+        129,
+        229,
+        184,
+        136
+       ]
+      }
+     ]
+    },
+    {
+     "token": "Okay",
+     "logprob": -0.0762048289179802,
+     "bytes": [
+      79,
+      107,
+      97,
+      121
+     ],
+     "top_logprobs": [
+      {
+       "token": "Okay",
+       "logprob": -0.0762048289179802,
+       "bytes": [
+        79,
+        107,
+        97,
+        121
+       ]
+      },
+      {
+       "token": "Alright",
+       "logprob": -3.153517246246338,
+       "bytes": [
+        65,
+        108,
+        114,
+        105,
+        103,
+        104,
+        116
+       ]
+      },
+      {
+       "token": "You",
+       "logprob": -5.194326877593994,
+       "bytes": [
+        89,
+        111,
+        117
+       ]
+      },
+      {
+       "token": "I",
+       "logprob": -5.485432147979736,
+       "bytes": [
+        73
+       ]
+      },
+      {
+       "token": "Hi",
+       "logprob": -5.583786487579346,
+       "bytes": [
+        72,
+        105
+       ]
+      }
+     ]
+    },
+    {
+     "token": ",",
+     "logprob": -1.8239186829305254e-05,
+     "bytes": [
+      44
+     ],
+     "top_logprobs": [
+      {
+       "token": ",",
+       "logprob": -1.8239186829305254e-05,
+       "bytes": [
+        44
+       ]
+      },
+      {
+       "token": ".",
+       "logprob": -11.329468727111816,
+       "bytes": [
+        46
+       ]
+      },
+      {
+       "token": " so",
+       "logprob": -12.542989730834961,
+       "bytes": [
+        32,
+        115,
+        111
+       ]
+      },
+      {
+       "token": " users",
+       "logprob": -14.176159858703613,
+       "bytes": [
+        32,
+        117,
+        115,
+        101,
+        114,
+        115
+       ]
+      },
+      {
+       "token": "\uff0c",
+       "logprob": -14.653133392333984,
+       "bytes": [
+        239,
+        188,
+        140
+       ]
+      }
+     ]
+    },
+    {
+     "token": " the",
+     "logprob": -0.01876342110335827,
+     "bytes": [
+      32,
+      116,
+      104,
+      101
+     ],
+     "top_logprobs": [
+      {
+       "token": " the",
+       "logprob": -0.01876342110335827,
+       "bytes": [
+        32,
+        116,
+        104,
+        101
+       ]
+      },
+      {
+       "token": " so",
+       "logprob": -5.099448204040527,
+       "bytes": [
+        32,
+        115,
+        111
+       ]
+      },
+      {
+       "token": " user",
+       "logprob": -5.525479316711426,
+       "bytes": [
+        32,
+        117,
+        115,
+        101,
+        114
+       ]
+      },
+      {
+       "token": " I",
+       "logprob": -5.569525718688965,
+       "bytes": [
+        32,
+        73
+       ]
+      },
+      {
+       "token": " let",
+       "logprob": -5.61666202545166,
+       "bytes": [
+        32,
+        108,
+        101,
+        116
+       ]
+      }
+     ]
+    },
+    {
+     "token": " user",
+     "logprob": -8.058872481342405e-05,
+     "bytes": [
+      32,
+      117,
+      115,
+      101,
+      114
+     ],
+     "top_logprobs": [
+      {
+       "token": " user",
+       "logprob": -8.058872481342405e-05,
+       "bytes": [
+        32,
+        117,
+        115,
+        101,
+        114
+       ]
+      },
+      {
+       "token": " customer",
+       "logprob": -10.984122276306152,
+       "bytes": [
+        32,
+        99,
+        117,
+        115,
+        116,
+        111,
+        109,
+        101,
+        114
+       ]
+      },
+      {
+       "token": " query",
+       "logprob": -11.473410606384277,
+       "bytes": [
+        32,
+        113,
+        117,
+        101,
+        114,
+        121
+       ]
+      },
+      {
+       "token": " person",
+       "logprob": -11.839396476745605,
+       "bytes": [
+        32,
+        112,
+        101,
+        114,
+        115,
+        111,
+        110
+       ]
+      },
+      {
+       "token": " question",
+       "logprob": -11.950894355773926,
+       "bytes": [
+        32,
+        113,
+        117,
+        101,
+        115,
+        116,
+        105,
+        111,
+        110
+       ]
+      }
+     ]
+    },
+    {
+     "token": " just",
+     "logprob": -0.7547946572303772,
+     "bytes": [
+      32,
+      106,
+      117,
+      115,
+      116
+     ],
+     "top_logprobs": [
+      {
+       "token": " just",
+       "logprob": -0.7547946572303772,
+       "bytes": [
+        32,
+        106,
+        117,
+        115,
+        116
+       ]
+      },
+      {
+       "token": " said",
+       "logprob": -1.0596041679382324,
+       "bytes": [
+        32,
+        115,
+        97,
+        105,
+        100
+       ]
+      },
+      {
+       "token": " asked",
+       "logprob": -2.1869616508483887,
+       "bytes": [
+        32,
+        97,
+        115,
+        107,
+        101,
+        100
+       ]
+      },
+      {
+       "token": " is",
+       "logprob": -3.8675074577331543,
+       "bytes": [
+        32,
+        105,
+        115
+       ]
+      },
+      {
+       "token": " sent",
+       "logprob": -3.962737560272217,
+       "bytes": [
+        32,
+        115,
+        101,
+        110,
+        116
+       ]
+      }
+     ]
+    },
+    {
+     "token": " said",
+     "logprob": -0.41068035364151,
+     "bytes": [
+      32,
+      115,
+      97,
+      105,
+      100
+     ],
+     "top_logprobs": [
+      {
+       "token": " said",
+       "logprob": -0.41068035364151,
+       "bytes": [
+        32,
+        115,
+        97,
+        105,
+        100
+       ]
+      },
+      {
+       "token": " asked",
+       "logprob": -1.2085528373718262,
+       "bytes": [
+        32,
+        97,
+        115,
+        107,
+        101,
+        100
+       ]
+      },
+      {
+       "token": " sent",
+       "logprob": -3.4060988426208496,
+       "bytes": [
+        32,
+        115,
+        101,
+        110,
+        116
+       ]
+      },
+      {
+       "token": " greeted",
+       "logprob": -6.4628424644470215,
+       "bytes": [
+        32,
+        103,
+        114,
+        101,
+        101,
+        116,
+        101,
+        100
+       ]
+      },
+      {
+       "token": " says",
+       "logprob": -6.813045024871826,
+       "bytes": [
+        32,
+        115,
+        97,
+        121,
+        115
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "completions_text_logprobs": {
+  "status": 200,
+  "result": {
+   "text": "<think>\nOkay, the user is asking",
+   "logprobs": null,
+   "usage": {
+    "prompt_tokens": 13,
+    "completion_tokens": 8,
+    "total_tokens": 21
+   }
+  }
+ },
+ "completions_token_ids": {
+  "status": 400,
+  "result": {
+   "error": {
+    "message": "json: cannot unmarshal array into Go struct field CompletionRequest.prompt of type string",
+    "type": "invalid_request_error",
+    "param": null,
+    "code": null
+   }
+  }
+ },
+ "completions_echo": {
+  "status": 200,
+  "result": {
+   "text": "<think>\nOkay, the user is asking",
+   "logprobs": null
+  }
+ },
+ "tools_auto": {
+  "status": 500,
+  "result": {
+   "error": {
+    "message": "{\"error\":{\"code\":500,\"message\":\"tools param requires --jinja flag\",\"type\":\"server_error\"}}",
+    "type": "api_error",
+    "param": null,
+    "code": null
+   }
+  }
+ },
+ "tools_none": {
+  "status": 500,
+  "result": {
+   "error": {
+    "message": "{\"error\":{\"code\":500,\"message\":\"tools param requires --jinja flag\",\"type\":\"server_error\"}}",
+    "type": "api_error",
+    "param": null,
+    "code": null
+   }
+  }
+ },
+ "tools_required": {
+  "status": 500,
+  "result": {
+   "error": {
+    "message": "{\"error\":{\"code\":500,\"message\":\"tools param requires --jinja flag\",\"type\":\"server_error\"}}",
+    "type": "api_error",
+    "param": null,
+    "code": null
+   }
+  }
+ },
+ "json_schema": {
+  "status": 200,
+  "result": {
+   "finish": "stop",
+   "content": "{\"age\": 30, \"name\": \"Ann\"}"
+  }
+ },
+ "sampling_top_k_1": {
+  "status": 200,
+  "result": "<think>\nOkay,"
+ },
+ "sampling_top_k_0": {
+  "status": 200,
+  "result": "<think>\nHi!"
+ },
+ "show": {
+  "status": 200,
+  "result": {
+   "template": "{%- if tools %}\n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {{- messages[0].content + '\\n\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\\n<tool_call>\\n{\\\"name\\\": <funct",
+   "parameters": null,
+   "context_length": {
+    "qwen3.context_length": 40960
+   }
+  }
+ }
+}

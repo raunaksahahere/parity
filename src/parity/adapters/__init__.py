@@ -1,11 +1,13 @@
 from parity.adapters.base import Adapter, Capabilities
 from parity.adapters.llamacpp import LlamaCppAdapter
+from parity.adapters.ollama import OllamaAdapter
 from parity.adapters.openai import OpenAIAdapter
 from parity.adapters.vllm import VLLMAdapter
 
 ADAPTERS: dict[str, type[Adapter]] = {
     "llamacpp": LlamaCppAdapter,
     "vllm": VLLMAdapter,
+    "ollama": OllamaAdapter,
     "openai": OpenAIAdapter,
 }
 

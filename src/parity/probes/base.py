@@ -78,6 +78,10 @@ class ProbeContext:
     budget: int | None = None
     options: dict[str, Any] = field(default_factory=dict)
 
+    async def chat(self, messages: list[dict[str, Any]], **params: Any) -> dict[str, Any]:
+        """A chat request to the target, in the target's dialect (see Adapter.chat_params)."""
+        return await self.client.chat(self.model, messages, **self.adapter.chat_params(params))
+
     def can_afford(self, n_more: int) -> bool:
         """False if sending ``n_more`` further requests would exceed the request budget."""
         return self.budget is None or self.client.requests_sent + n_more <= self.budget

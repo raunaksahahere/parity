@@ -46,6 +46,13 @@ class Adapter(ABC):
     ) -> Completion:
         """Generate one token after ``prefix_ids`` under explicit sampling parameters."""
 
+    def chat_params(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Translate Parity's chat parameters into this server's dialect (identity by default).
+
+        Probes express template options as ``chat_template_kwargs`` (llama.cpp and vLLM read
+        them); servers with their own switch for the same thing override this."""
+        return params
+
     async def generate(
         self,
         client: EndpointClient,

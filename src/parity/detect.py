@@ -14,6 +14,12 @@ async def detect_adapter(client: EndpointClient) -> str:
     except (EndpointError, ValueError, OSError):
         pass
     try:
+        ver = await client.get_json("/api/version")  # Ollama's own API, next to /v1
+        if "version" in ver:
+            return "ollama"
+    except (EndpointError, ValueError, OSError):
+        pass
+    try:
         ver = await client.get_json("/version")
         if "version" in ver:
             return "vllm"

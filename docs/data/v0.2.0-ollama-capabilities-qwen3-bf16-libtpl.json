@@ -1,0 +1,533 @@
+{
+ "version": {
+  "version": "0.33.2"
+ },
+ "chat_usage": {
+  "status": 200,
+  "result": {
+   "usage": {
+    "prompt_tokens": 20,
+    "completion_tokens": 8,
+    "total_tokens": 28
+   },
+   "msg": {
+    "role": "assistant",
+    "content": "",
+    "reasoning": "Okay, the user just said"
+   }
+  }
+ },
+ "chat_logprobs": {
+  "status": 200,
+  "result": {
+   "content": [
+    {
+     "token": "Okay",
+     "logprob": -0.06512176990509033,
+     "bytes": [
+      79,
+      107,
+      97,
+      121
+     ],
+     "top_logprobs": [
+      {
+       "token": "Okay",
+       "logprob": -0.06512176990509033,
+       "bytes": [
+        79,
+        107,
+        97,
+        121
+       ]
+      },
+      {
+       "token": "Alright",
+       "logprob": -3.125765800476074,
+       "bytes": [
+        65,
+        108,
+        114,
+        105,
+        103,
+        104,
+        116
+       ]
+      },
+      {
+       "token": "I",
+       "logprob": -5.471137046813965,
+       "bytes": [
+        73
+       ]
+      },
+      {
+       "token": "You",
+       "logprob": -5.76187801361084,
+       "bytes": [
+        89,
+        111,
+        117
+       ]
+      },
+      {
+       "token": "Hello",
+       "logprob": -6.643935203552246,
+       "bytes": [
+        72,
+        101,
+        108,
+        108,
+        111
+       ]
+      }
+     ]
+    },
+    {
+     "token": ",",
+     "logprob": -1.2278632311790716e-05,
+     "bytes": [
+      44
+     ],
+     "top_logprobs": [
+      {
+       "token": ",",
+       "logprob": -1.2278632311790716e-05,
+       "bytes": [
+        44
+       ]
+      },
+      {
+       "token": ".",
+       "logprob": -11.845879554748535,
+       "bytes": [
+        46
+       ]
+      },
+      {
+       "token": " so",
+       "logprob": -12.608710289001465,
+       "bytes": [
+        32,
+        115,
+        111
+       ]
+      },
+      {
+       "token": " users",
+       "logprob": -14.455965042114258,
+       "bytes": [
+        32,
+        117,
+        115,
+        101,
+        114,
+        115
+       ]
+      },
+      {
+       "token": "\uff0c",
+       "logprob": -15.219465255737305,
+       "bytes": [
+        239,
+        188,
+        140
+       ]
+      }
+     ]
+    },
+    {
+     "token": " the",
+     "logprob": -0.021931743249297142,
+     "bytes": [
+      32,
+      116,
+      104,
+      101
+     ],
+     "top_logprobs": [
+      {
+       "token": " the",
+       "logprob": -0.021931743249297142,
+       "bytes": [
+        32,
+        116,
+        104,
+        101
+       ]
+      },
+      {
+       "token": " let",
+       "logprob": -4.918097496032715,
+       "bytes": [
+        32,
+        108,
+        101,
+        116
+       ]
+      },
+      {
+       "token": " so",
+       "logprob": -5.339760780334473,
+       "bytes": [
+        32,
+        115,
+        111
+       ]
+      },
+      {
+       "token": " I",
+       "logprob": -5.3807783126831055,
+       "bytes": [
+        32,
+        73
+       ]
+      },
+      {
+       "token": " user",
+       "logprob": -5.487919807434082,
+       "bytes": [
+        32,
+        117,
+        115,
+        101,
+        114
+       ]
+      }
+     ]
+    },
+    {
+     "token": " user",
+     "logprob": -9.251068695448339e-05,
+     "bytes": [
+      32,
+      117,
+      115,
+      101,
+      114
+     ],
+     "top_logprobs": [
+      {
+       "token": " user",
+       "logprob": -9.251068695448339e-05,
+       "bytes": [
+        32,
+        117,
+        115,
+        101,
+        114
+       ]
+      },
+      {
+       "token": " customer",
+       "logprob": -10.525420188903809,
+       "bytes": [
+        32,
+        99,
+        117,
+        115,
+        116,
+        111,
+        109,
+        101,
+        114
+       ]
+      },
+      {
+       "token": " conversation",
+       "logprob": -11.52063274383545,
+       "bytes": [
+        32,
+        99,
+        111,
+        110,
+        118,
+        101,
+        114,
+        115,
+        97,
+        116,
+        105,
+        111,
+        110
+       ]
+      },
+      {
+       "token": " query",
+       "logprob": -11.778573036193848,
+       "bytes": [
+        32,
+        113,
+        117,
+        101,
+        114,
+        121
+       ]
+      },
+      {
+       "token": " person",
+       "logprob": -11.811976432800293,
+       "bytes": [
+        32,
+        112,
+        101,
+        114,
+        115,
+        111,
+        110
+       ]
+      }
+     ]
+    },
+    {
+     "token": " just",
+     "logprob": -0.692359983921051,
+     "bytes": [
+      32,
+      106,
+      117,
+      115,
+      116
+     ],
+     "top_logprobs": [
+      {
+       "token": " just",
+       "logprob": -0.692359983921051,
+       "bytes": [
+        32,
+        106,
+        117,
+        115,
+        116
+       ]
+      },
+      {
+       "token": " said",
+       "logprob": -1.242111325263977,
+       "bytes": [
+        32,
+        115,
+        97,
+        105,
+        100
+       ]
+      },
+      {
+       "token": " asked",
+       "logprob": -2.4384765625,
+       "bytes": [
+        32,
+        97,
+        115,
+        107,
+        101,
+        100
+       ]
+      },
+      {
+       "token": " is",
+       "logprob": -2.9560089111328125,
+       "bytes": [
+        32,
+        105,
+        115
+       ]
+      },
+      {
+       "token": " says",
+       "logprob": -3.7203369140625,
+       "bytes": [
+        32,
+        115,
+        97,
+        121,
+        115
+       ]
+      }
+     ]
+    },
+    {
+     "token": " said",
+     "logprob": -0.49606195092201233,
+     "bytes": [
+      32,
+      115,
+      97,
+      105,
+      100
+     ],
+     "top_logprobs": [
+      {
+       "token": " said",
+       "logprob": -0.49606195092201233,
+       "bytes": [
+        32,
+        115,
+        97,
+        105,
+        100
+       ]
+      },
+      {
+       "token": " asked",
+       "logprob": -1.226204514503479,
+       "bytes": [
+        32,
+        97,
+        115,
+        107,
+        101,
+        100
+       ]
+      },
+      {
+       "token": " sent",
+       "logprob": -2.5538833141326904,
+       "bytes": [
+        32,
+        115,
+        101,
+        110,
+        116
+       ]
+      },
+      {
+       "token": " greeted",
+       "logprob": -4.5900750160217285,
+       "bytes": [
+        32,
+        103,
+        114,
+        101,
+        101,
+        116,
+        101,
+        100
+       ]
+      },
+      {
+       "token": " says",
+       "logprob": -5.6169514656066895,
+       "bytes": [
+        32,
+        115,
+        97,
+        121,
+        115
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "completions_text_logprobs": {
+  "status": 200,
+  "result": {
+   "text": "",
+   "logprobs": null,
+   "usage": {
+    "prompt_tokens": 15,
+    "completion_tokens": 8,
+    "total_tokens": 23
+   }
+  }
+ },
+ "completions_token_ids": {
+  "status": 400,
+  "result": {
+   "error": {
+    "message": "json: cannot unmarshal array into Go struct field CompletionRequest.prompt of type string",
+    "type": "invalid_request_error",
+    "param": null,
+    "code": null
+   }
+  }
+ },
+ "completions_echo": {
+  "status": 200,
+  "result": {
+   "text": "",
+   "logprobs": null
+  }
+ },
+ "tools_auto": {
+  "status": 200,
+  "result": {
+   "finish": "tool_calls",
+   "tool_calls": [
+    {
+     "id": "call_mzj3trfq",
+     "index": 0,
+     "type": "function",
+     "function": {
+      "name": "get_weather",
+      "arguments": "{\"city\":\"Tokyo\"}"
+     }
+    }
+   ],
+   "content": ""
+  }
+ },
+ "tools_none": {
+  "status": 200,
+  "result": {
+   "finish": "tool_calls",
+   "tool_calls": [
+    {
+     "id": "call_dsy30hg4",
+     "index": 0,
+     "type": "function",
+     "function": {
+      "name": "get_weather",
+      "arguments": "{\"city\":\"Tokyo\"}"
+     }
+    }
+   ],
+   "content": ""
+  }
+ },
+ "tools_required": {
+  "status": 200,
+  "result": {
+   "finish": "tool_calls",
+   "tool_calls": [
+    {
+     "id": "call_6j5n0tic",
+     "index": 0,
+     "type": "function",
+     "function": {
+      "name": "get_weather",
+      "arguments": "{\"city\":\"Tokyo\"}"
+     }
+    }
+   ],
+   "content": ""
+  }
+ },
+ "json_schema": {
+  "status": 200,
+  "result": {
+   "finish": "length",
+   "content": ""
+  }
+ },
+ "sampling_top_k_1": {
+  "status": 200,
+  "result": ""
+ },
+ "sampling_top_k_0": {
+  "status": 200,
+  "result": ""
+ },
+ "show": {
+  "status": 200,
+  "result": {
+   "template": "\n{{- $lastUserIdx := -1 -}}\n{{- range $idx, $msg := .Messages -}}\n{{- if eq $msg.Role \"user\" }}{{ $lastUserIdx = $idx }}{{ end -}}\n{{- end }}\n{{- if or .System .Tools }}<|im_start|>system\n{{ if .System }}\n{{ .System }}\n{{- end }}\n{{- if .Tools }}\n\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{{- range .Tools }}\n{\"type\": \"function\", \"function\": {{ .Function }}}\n{{- end }}\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool",
+   "parameters": "top_k                          20\ntop_p                          0.95\nrepeat_penalty                 1\nstop                           \"<|im_start|>\"\nstop                           \"<|im_end|>\"\ntemperature                    0.6",
+   "context_length": {
+    "qwen3.context_length": 40960
+   }
+  }
+ }
+}

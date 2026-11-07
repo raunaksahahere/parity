@@ -21,7 +21,7 @@ from typing import Any
 
 from parity.faults.proxy import FaultProxy
 from parity.faults.resources import peak_rss_mb, reset_peak_rss, wait_until_cool
-from parity.faults.scenarios import CLAIMED_CONTEXT, Paths, Scenario, by_name
+from parity.faults.scenarios import CLAIMED_CONTEXT, FAMILIES, Paths, Scenario, by_name
 from parity.fingerprint import code_fingerprint, digest, file_sha256, git_state
 from parity.local.llamacpp import LlamaServer
 from parity.probes.base import Status
@@ -57,6 +57,7 @@ class StudyConfig:
     model_id: str = "Qwen/Qwen3-0.6B"
     revision: str = "c1899de289a04d12100db370d81485cdf75e47ca"
     paths: Paths = field(default_factory=Paths)
+    family: str = "qwen3-0.6b"  # scenario catalogue (faults.scenarios.FAMILIES)
     scenarios: list[str] | None = None
     reps: int | None = None  # override every scenario's repetition count
     probes: list[str] | None = None  # run only these probes (default: the whole core suite)
@@ -80,6 +81,20 @@ class StudyConfig:
     @property
     def manifest_file(self) -> Path:
         return self.out / "study-manifest.json"
+
+
+def config_for_family(out: Path, family: str, **kw: Any) -> StudyConfig:
+    """A StudyConfig whose reference, revision and GGUF files come from a model family."""
+    fam = FAMILIES[family]
+    return StudyConfig(
+        out=out,
+        family=family,
+        hf_model=fam.hf_dir,
+        model_id=fam.model_id,
+        revision=fam.revision,
+        paths=fam.paths(),
+        **kw,
+    )
 
 
 def load_results(path: Path) -> list[dict[str, Any]]:
@@ -113,6 +128,7 @@ def study_identity(cfg: StudyConfig, reference: Reference, cal: Calibration) -> 
         if cfg.paths.binary(b == "gpu").exists()
     }
     return {
+        "family": cfg.family,
         "parity_code": code_fingerprint(),
         "reference": reference.info.model_dump(mode="json"),
         "calibration": cal.fingerprint(),
@@ -165,7 +181,7 @@ def _calibration_suite() -> Suite:
 
 def calibrate(cfg: StudyConfig, reference: Reference) -> Calibration:
     values: dict[str, dict[str, float]] = {}
-    benign = [s for s in by_name(None) if s.kind == "benign"]
+    benign = [s for s in by_name(None, cfg.family) if s.kind == "benign"]
     dep = _Deployment(cfg)
     try:
         for sc in benign:

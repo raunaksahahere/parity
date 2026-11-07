@@ -1,0 +1,579 @@
+{
+ "version": {
+  "version": "0.33.2"
+ },
+ "chat_usage": {
+  "status": 200,
+  "result": {
+   "usage": {
+    "prompt_tokens": 19,
+    "completion_tokens": 8,
+    "total_tokens": 27
+   },
+   "msg": {
+    "role": "assistant",
+    "content": "Hello. How can I help you today"
+   }
+  }
+ },
+ "chat_logprobs": {
+  "status": 200,
+  "result": {
+   "content": [
+    {
+     "token": "Hello",
+     "logprob": -0.5695663094520569,
+     "bytes": [
+      72,
+      101,
+      108,
+      108,
+      111
+     ],
+     "top_logprobs": [
+      {
+       "token": "Hello",
+       "logprob": -0.5695663094520569,
+       "bytes": [
+        72,
+        101,
+        108,
+        108,
+        111
+       ]
+      },
+      {
+       "token": "I",
+       "logprob": -2.0734686851501465,
+       "bytes": [
+        73
+       ]
+      },
+      {
+       "token": "Hi",
+       "logprob": -2.076352834701538,
+       "bytes": [
+        72,
+        105
+       ]
+      },
+      {
+       "token": "Yes",
+       "logprob": -3.701201915740967,
+       "bytes": [
+        89,
+        101,
+        115
+       ]
+      },
+      {
+       "token": "Hey",
+       "logprob": -4.1660284996032715,
+       "bytes": [
+        72,
+        101,
+        121
+       ]
+      }
+     ]
+    },
+    {
+     "token": ".",
+     "logprob": -0.6936877369880676,
+     "bytes": [
+      46
+     ],
+     "top_logprobs": [
+      {
+       "token": ".",
+       "logprob": -0.6936877369880676,
+       "bytes": [
+        46
+       ]
+      },
+      {
+       "token": "?",
+       "logprob": -1.5995525121688843,
+       "bytes": [
+        63
+       ]
+      },
+      {
+       "token": ",",
+       "logprob": -2.170938730239868,
+       "bytes": [
+        44
+       ]
+      },
+      {
+       "token": "!",
+       "logprob": -2.186441659927368,
+       "bytes": [
+        33
+       ]
+      },
+      {
+       "token": "",
+       "logprob": -2.9161932468414307
+      }
+     ]
+    },
+    {
+     "token": " How",
+     "logprob": -0.2982434928417206,
+     "bytes": [
+      32,
+      72,
+      111,
+      119
+     ],
+     "top_logprobs": [
+      {
+       "token": " How",
+       "logprob": -0.2982434928417206,
+       "bytes": [
+        32,
+        72,
+        111,
+        119
+       ]
+      },
+      {
+       "token": "",
+       "logprob": -2.1737451553344727
+      },
+      {
+       "token": " I",
+       "logprob": -3.0777082443237305,
+       "bytes": [
+        32,
+        73
+       ]
+      },
+      {
+       "token": " What",
+       "logprob": -3.4171934127807617,
+       "bytes": [
+        32,
+        87,
+        104,
+        97,
+        116
+       ]
+      },
+      {
+       "token": " Is",
+       "logprob": -4.094168663024902,
+       "bytes": [
+        32,
+        73,
+        115
+       ]
+      }
+     ]
+    },
+    {
+     "token": " can",
+     "logprob": -0.014105875045061111,
+     "bytes": [
+      32,
+      99,
+      97,
+      110
+     ],
+     "top_logprobs": [
+      {
+       "token": " can",
+       "logprob": -0.014105875045061111,
+       "bytes": [
+        32,
+        99,
+        97,
+        110
+       ]
+      },
+      {
+       "token": " may",
+       "logprob": -4.4651384353637695,
+       "bytes": [
+        32,
+        109,
+        97,
+        121
+       ]
+      },
+      {
+       "token": " are",
+       "logprob": -6.845181465148926,
+       "bytes": [
+        32,
+        97,
+        114,
+        101
+       ]
+      },
+      {
+       "token": " might",
+       "logprob": -6.856362342834473,
+       "bytes": [
+        32,
+        109,
+        105,
+        103,
+        104,
+        116
+       ]
+      },
+      {
+       "token": " could",
+       "logprob": -9.104691505432129,
+       "bytes": [
+        32,
+        99,
+        111,
+        117,
+        108,
+        100
+       ]
+      }
+     ]
+    },
+    {
+     "token": " I",
+     "logprob": -0.0012822023127228022,
+     "bytes": [
+      32,
+      73
+     ],
+     "top_logprobs": [
+      {
+       "token": " I",
+       "logprob": -0.0012822023127228022,
+       "bytes": [
+        32,
+        73
+       ]
+      },
+      {
+       "token": " we",
+       "logprob": -7.00364351272583,
+       "bytes": [
+        32,
+        119,
+        101
+       ]
+      },
+      {
+       "token": " you",
+       "logprob": -8.019575119018555,
+       "bytes": [
+        32,
+        121,
+        111,
+        117
+       ]
+      },
+      {
+       "token": " i",
+       "logprob": -11.253539085388184,
+       "bytes": [
+        32,
+        105
+       ]
+      },
+      {
+       "token": " the",
+       "logprob": -11.345584869384766,
+       "bytes": [
+        32,
+        116,
+        104,
+        101
+       ]
+      }
+     ]
+    },
+    {
+     "token": " help",
+     "logprob": -0.33799126744270325,
+     "bytes": [
+      32,
+      104,
+      101,
+      108,
+      112
+     ],
+     "top_logprobs": [
+      {
+       "token": " help",
+       "logprob": -0.33799126744270325,
+       "bytes": [
+        32,
+        104,
+        101,
+        108,
+        112
+       ]
+      },
+      {
+       "token": " assist",
+       "logprob": -1.2596677541732788,
+       "bytes": [
+        32,
+        97,
+        115,
+        115,
+        105,
+        115,
+        116
+       ]
+      },
+      {
+       "token": " support",
+       "logprob": -6.594642162322998,
+       "bytes": [
+        32,
+        115,
+        117,
+        112,
+        112,
+        111,
+        114,
+        116
+       ]
+      },
+      {
+       "token": " be",
+       "logprob": -6.870213985443115,
+       "bytes": [
+        32,
+        98,
+        101
+       ]
+      },
+      {
+       "token": ",",
+       "logprob": -8.453579902648926,
+       "bytes": [
+        44
+       ]
+      }
+     ]
+    },
+    {
+     "token": " you",
+     "logprob": -0.001431177486665547,
+     "bytes": [
+      32,
+      121,
+      111,
+      117
+     ],
+     "top_logprobs": [
+      {
+       "token": " you",
+       "logprob": -0.001431177486665547,
+       "bytes": [
+        32,
+        121,
+        111,
+        117
+       ]
+      },
+      {
+       "token": "?",
+       "logprob": -6.703073978424072,
+       "bytes": [
+        63
+       ]
+      },
+      {
+       "token": " with",
+       "logprob": -8.925311088562012,
+       "bytes": [
+        32,
+        119,
+        105,
+        116,
+        104
+       ]
+      },
+      {
+       "token": " today",
+       "logprob": -10.726815223693848,
+       "bytes": [
+        32,
+        116,
+        111,
+        100,
+        97,
+        121
+       ]
+      },
+      {
+       "token": " in",
+       "logprob": -11.374454498291016,
+       "bytes": [
+        32,
+        105,
+        110
+       ]
+      }
+     ]
+    },
+    {
+     "token": " today",
+     "logprob": -0.054171957075595856,
+     "bytes": [
+      32,
+      116,
+      111,
+      100,
+      97,
+      121
+     ],
+     "top_logprobs": [
+      {
+       "token": " today",
+       "logprob": -0.054171957075595856,
+       "bytes": [
+        32,
+        116,
+        111,
+        100,
+        97,
+        121
+       ]
+      },
+      {
+       "token": "?",
+       "logprob": -3.014352321624756,
+       "bytes": [
+        63
+       ]
+      },
+      {
+       "token": ",",
+       "logprob": -6.27754545211792,
+       "bytes": [
+        44
+       ]
+      },
+      {
+       "token": " this",
+       "logprob": -7.386104106903076,
+       "bytes": [
+        32,
+        116,
+        104,
+        105,
+        115
+       ]
+      },
+      {
+       "token": " during",
+       "logprob": -8.449614524841309,
+       "bytes": [
+        32,
+        100,
+        117,
+        114,
+        105,
+        110,
+        103
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "completions_text_logprobs": {
+  "status": 200,
+  "result": {
+   "text": "I'm sorry for any confusion, but",
+   "logprobs": null,
+   "usage": {
+    "prompt_tokens": 35,
+    "completion_tokens": 8,
+    "total_tokens": 43
+   }
+  }
+ },
+ "completions_token_ids": {
+  "status": 400,
+  "result": {
+   "error": {
+    "message": "json: cannot unmarshal array into Go struct field CompletionRequest.prompt of type string",
+    "type": "invalid_request_error",
+    "param": null,
+    "code": null
+   }
+  }
+ },
+ "completions_echo": {
+  "status": 200,
+  "result": {
+   "text": "I'm sorry for any confusion, but",
+   "logprobs": null
+  }
+ },
+ "tools_auto": {
+  "status": 400,
+  "result": {
+   "error": {
+    "message": "registry.ollama.ai/library/parity-smollm2-f16-libtpl:latest does not support tools",
+    "type": "invalid_request_error",
+    "param": null,
+    "code": null
+   }
+  }
+ },
+ "tools_none": {
+  "status": 400,
+  "result": {
+   "error": {
+    "message": "registry.ollama.ai/library/parity-smollm2-f16-libtpl:latest does not support tools",
+    "type": "invalid_request_error",
+    "param": null,
+    "code": null
+   }
+  }
+ },
+ "tools_required": {
+  "status": 400,
+  "result": {
+   "error": {
+    "message": "registry.ollama.ai/library/parity-smollm2-f16-libtpl:latest does not support tools",
+    "type": "invalid_request_error",
+    "param": null,
+    "code": null
+   }
+  }
+ },
+ "json_schema": {
+  "status": 200,
+  "result": {
+   "finish": "stop",
+   "content": "{\n  \"name\": \"Ann\",\n  \"age\": 30\n}"
+  }
+ },
+ "sampling_top_k_1": {
+  "status": 200,
+  "result": "Hello. It's"
+ },
+ "sampling_top_k_0": {
+  "status": 200,
+  "result": "Hi."
+ },
+ "show": {
+  "status": 200,
+  "result": {
+   "template": "{{- if .Messages }}\n{{- if .System }}<|im_start|>system\n{{ .System }}<|im_end|>\n{{ end }}\n{{- range $i, $_ := .Messages }}\n{{- $last := eq (len (slice $.Messages $i)) 1 -}}\n{{- if eq .Role \"user\" }}<|im_start|>user\n{{ .Content }}<|im_end|>\n{{ else if eq .Role \"assistant\" }}<|im_start|>assistant\n{{ .Content }}{{ if not $last }}<|im_end|>\n{{ end }}\n{{- end }}\n{{- if and (ne .Role \"assistant\") $last }}<|im_start|>assistant\n{{ end }}\n{{- end }}\n{{- else }}\n{{- if .System }}<|im_start|>system\n{{ .System }}<|im_end|>\n{{ end }}{{ if .Prompt }}<|im_start|>user\n{{ .Prompt }}<|im_end|>\n{{ end }}<|im_sta",
+   "parameters": "stop                           \"<|im_start|>\"\nstop                           \"<|im_end|>\"",
+   "context_length": {
+    "llama.context_length": 8192
+   }
+  }
+ }
+}

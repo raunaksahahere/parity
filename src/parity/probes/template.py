@@ -73,9 +73,23 @@ def diagnose(obs: list[Observation]) -> list[str]:
     return out
 
 
+def tools_change_render(kit: Any, msgs: list[dict[str, Any]], tools: Any, **kw: Any) -> bool:
+    """False when the official chat template ignores tool definitions (no tool format)."""
+    try:
+        return bool(kit.render_chat(msgs, tools=tools, **kw) != kit.render_chat(msgs, **kw))
+    except Exception:
+        return False
+
+
+def rejects_tools(exc: EndpointError) -> bool:
+    """The endpoint refused a request because of its tool definitions (unsupported feature)."""
+    return "tool" in str(exc).lower() and (exc.status or 0) >= 400
+
+
 class TemplateProbe(Probe):
     id = "template.token_counts"
     family = "template"
+    version = "2"
 
     async def run(self, ctx: ProbeContext) -> ProbeResult:
         suite = ctx.options.get("suite", DEFAULT_SUITE)
@@ -85,11 +99,18 @@ class TemplateProbe(Probe):
         template_kwargs: dict[str, Any] = ctx.options.get("template_kwargs", {})
         observations: list[Observation] = []
         findings: list[Finding] = []
+        notes: list[str] = []
         n_requests = 0
 
         for conv in spec["conversations"]:
             msgs = conv["messages"]
             use_tools = bool(conv.get("use_tools"))
+            if use_tools and not tools_change_render(ctx.kit, msgs, tools, **template_kwargs):
+                notes.append(
+                    f"{conv['id']}: skipped, the official chat template has no tool format, so "
+                    "there is no reference rendering of tool definitions to compare"
+                )
+                continue
             tools_arg = tools if use_tools else None
             local = len(ctx.kit.chat_token_ids(msgs, tools=tools_arg, **template_kwargs))
             hypotheses: dict[str, int] = {}
@@ -120,9 +141,12 @@ class TemplateProbe(Probe):
             server: int | None = None
             try:
                 n_requests += 1
-                data = await ctx.client.chat(ctx.model, msgs, **params)
+                data = await ctx.chat(msgs, **params)
                 server = (data.get("usage") or {}).get("prompt_tokens")
             except EndpointError as exc:
+                if use_tools and rejects_tools(exc):
+                    notes.append(f"{conv['id']}: skipped, the endpoint rejects tools: {exc}")
+                    continue
                 findings.append(
                     Finding(severity="warn", message=f"{conv['id']}: request failed: {exc}")
                 )
@@ -149,6 +173,7 @@ class TemplateProbe(Probe):
                 Status.INCONCLUSIVE,
                 n_requests=n_requests,
                 metrics=metrics,
+                notes=notes,
                 findings=[
                     *findings,
                     Finding(
@@ -174,6 +199,7 @@ class TemplateProbe(Probe):
                 hard_evidence=False,
                 n_requests=n_requests,
                 metrics=metrics,
+                notes=notes,
                 findings=findings,
             )
 
@@ -193,6 +219,7 @@ class TemplateProbe(Probe):
                 effect_unit="max |token count difference|",
                 n_requests=n_requests,
                 metrics=metrics,
+                notes=notes,
                 findings=findings,
             )
         findings.append(
@@ -208,5 +235,6 @@ class TemplateProbe(Probe):
             effect_unit="max |token count difference|",
             n_requests=n_requests,
             metrics=metrics,
+            notes=notes,
             findings=findings,
         )

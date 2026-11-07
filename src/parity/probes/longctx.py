@@ -130,8 +130,7 @@ class LongContextProbe(Probe):
                 key = f"{length}/{depth}"
                 n_requests += 1
                 try:
-                    data = await ctx.client.chat(
-                        ctx.model,
+                    data = await ctx.chat(
                         case.messages,
                         max_tokens=24,
                         temperature=0.0,

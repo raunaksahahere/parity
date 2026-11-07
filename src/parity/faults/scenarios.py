@@ -30,12 +30,13 @@ class Paths:
     models_dir: Path = Path("models/gguf")
     templates_dir: Path = Path("faults/templates")
     llama_build: str = "llama-b12128"
+    model_pattern: str = "Qwen3-0.6B-{quant}.gguf"
 
     def binary(self, gpu: bool) -> Path:
         return self.bin_dir / ("vulkan" if gpu else "cpu") / self.llama_build / "llama-server"
 
     def model(self, quant: str) -> Path:
-        return self.models_dir / f"Qwen3-0.6B-{quant}.gguf"
+        return self.models_dir / self.model_pattern.format(quant=quant)
 
 
 @dataclass(frozen=True)
@@ -311,11 +312,125 @@ CPU_FAULTS: tuple[Scenario, ...] = tuple(_cpu_twin(s) for s in ORIGINAL_FAULTS)
 SCENARIOS = SCENARIOS + HELD_OUT + DEV + TOOL_FAULTS + CPU_FAULTS
 
 
-def by_name(names: list[str] | None) -> list[Scenario]:
+def by_name(names: list[str] | None, family: str = "qwen3-0.6b") -> list[Scenario]:
+    scenarios = catalogue(family)
     if not names:
-        return list(SCENARIOS)
-    index = {s.name: s for s in SCENARIOS}
+        return list(scenarios)
+    index = {s.name: s for s in scenarios}
     missing = [n for n in names if n not in index]
     if missing:
         raise ValueError(f"unknown scenarios {missing}; available: {sorted(index)}")
     return [index[n] for n in names]
+
+
+# -- a second model with a different architecture and tokenizer (v0.2.0) ------------------------
+# SmolLM2-360M-Instruct: Llama architecture, 49k-token GPT-2-style BPE vocabulary, ChatML template
+# without tool support (Qwen3: QK-norm, 151k vocabulary, tool-calling template). GGUFs from
+# unsloth/SmolLM2-360M-Instruct-GGUF@391ed11 (F16 is the correct deployment: the published
+# weights are BF16, which F16 represents exactly except for values below F16's normal range).
+
+SMOL = ServerSpec(quant="F16")
+
+SMOLLM2_SCENARIOS: tuple[Scenario, ...] = (
+    Scenario("benign-gpu-p4", "benign", "F16, GPU, 4 slots", SMOL, reps=1, expects="PASS"),
+    Scenario(
+        "benign-cpu-p4", "benign", "F16, CPU, 4 slots", replace(SMOL, gpu=False), reps=1,
+        expects="PASS",
+    ),
+    Scenario(
+        "control-gpu-p2", "control", "F16, GPU, 2 slots, ctx 8192",
+        replace(SMOL, ctx_size=8192, parallel=2), reps=5, expects="PASS", fresh=True,
+    ),
+    Scenario(
+        "control-gpu-fa-off", "control", "F16, GPU, 4 slots, flash attention off",
+        replace(SMOL, extra_args=("--flash-attn", "off")), reps=5, expects="PASS", fresh=True,
+    ),
+    Scenario(
+        "control-cpu-p1-t4", "control", "F16, CPU, 1 slot, 4 threads",
+        replace(SMOL, gpu=False, ctx_size=4096, parallel=1, threads=4), reps=2, expects="PASS",
+        fresh=True,
+    ),
+    Scenario("fault-quant-q8_0", "fault", "Q8_0 quantization", replace(SMOL, quant="Q8_0")),
+    Scenario("fault-quant-q4_k_m", "fault", "Q4_K_M quantization", replace(SMOL, quant="Q4_K_M")),
+    Scenario(
+        "fault-template-llama3", "fault", "wrong chat template (llama3 built-in)",
+        replace(SMOL, extra_args=("--chat-template", "llama3")),
+    ),
+    Scenario(
+        "fault-template-nosystem", "fault", "chat template without a system role",
+        replace(SMOL, template_file="chatml-no-system.jinja"),
+    ),
+    Scenario(
+        "fault-topk-ignored", "fault", "top_k ignored (proxy)", SMOL, ignore_param("top_k", 0)
+    ),
+    Scenario(
+        "fault-temperature-ignored", "fault", "temperature ignored, always 1.0 (proxy)", SMOL,
+        ignore_param("temperature", 1.0),
+    ),
+    Scenario(
+        "fault-ctx-reduced", "fault", "context reduced to 2048 (--ctx-size) but 4096 claimed",
+        replace(SMOL, ctx_size=2048, parallel=1),
+    ),
+    Scenario(
+        "fault-silent-truncation", "fault", "long prompts silently truncated (proxy)", SMOL,
+        truncate_chat_prompt(6000),
+    ),
+    Scenario(
+        "fault-json-malformed", "fault",
+        "structured output (response_format) is malformed JSON (proxy)", SMOL,
+        malform_json_content(),
+    ),
+    Scenario(
+        "fault-tools-dropped", "fault", "tool definitions dropped (proxy)", SMOL, drop_tools()
+    ),
+)  # fmt: skip
+
+
+@dataclass(frozen=True)
+class ModelFamily:
+    """A model with its reference weights, GGUF files and study scenarios."""
+
+    key: str
+    hf_dir: Path
+    model_id: str
+    revision: str
+    gguf_dir: Path
+    gguf_pattern: str
+    scenarios: tuple[Scenario, ...]
+
+    def paths(self) -> Paths:
+        return Paths(models_dir=self.gguf_dir, model_pattern=self.gguf_pattern)
+
+
+FAMILIES: dict[str, ModelFamily] = {
+    f.key: f
+    for f in (
+        ModelFamily(
+            "qwen3-0.6b",
+            Path("models/hf/Qwen3-0.6B"),
+            "Qwen/Qwen3-0.6B",
+            "c1899de289a04d12100db370d81485cdf75e47ca",
+            Path("models/gguf"),
+            "Qwen3-0.6B-{quant}.gguf",
+            SCENARIOS,
+        ),
+        ModelFamily(
+            "smollm2-360m",
+            Path("models/hf/SmolLM2-360M-Instruct"),
+            "HuggingFaceTB/SmolLM2-360M-Instruct",
+            "a10cc1512eabd3dde888204e902eca88bddb4951",
+            Path("models/gguf-smollm2"),
+            "SmolLM2-360M-Instruct-{quant}.gguf",
+            SMOLLM2_SCENARIOS,
+        ),
+    )
+}
+
+
+def catalogue(family: str = "qwen3-0.6b") -> tuple[Scenario, ...]:
+    try:
+        return FAMILIES[family].scenarios
+    except KeyError:
+        raise ValueError(
+            f"unknown model family {family!r}; choose from {sorted(FAMILIES)}"
+        ) from None
