@@ -72,6 +72,8 @@ include = [
   "action.yml",
   "Dockerfile",
 ]
+# media for the GitHub README only; keeps the source distribution small
+exclude = ["docs/assets/*.mp4", "docs/assets/*.gif"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/parity"]
