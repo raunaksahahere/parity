@@ -1,0 +1,140 @@
+{
+ "study_fingerprint": "4378a2d576832a61733d5eb8d11605ea6cc6978a86af8fc23731e096269cda29",
+ "identity": {
+  "parity_code": "f9791b15f1ee69a4af30cacf0ea5c56856be56f8cff0464c2b97ce98e9e48ad5",
+  "reference": {
+   "kind": "hf:local",
+   "model_id": "Qwen/Qwen3-0.6B",
+   "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+   "dtype": "float32",
+   "model_fingerprint": "f1c5ff425a41dfc6a4dbd4383676e1873f9b657b92b3c637afb3f8f27a5f1d50",
+   "tokenizer_fingerprint": "c9f8b9ccae24dd469b31dd6e858b046b6e2c283830a648cd5d8209c6a73c595e"
+  },
+  "calibration": "296544f6c06803bd2efa5436837f2bc46b27b20ad87c99c3430f7c6dd5861665",
+  "probes": null,
+  "alpha": 0.05,
+  "seed_base": 1000,
+  "fail_fast": false,
+  "claimed_context": 4096,
+  "llama_server_sha256": {
+   "gpu": "eb9fa9bd4a1cfe00bae804d90cb366c5c0e07820c41f0f0613cd5ead0ee5103d",
+   "cpu": "eb9fa9bd4a1cfe00bae804d90cb366c5c0e07820c41f0f0613cd5ead0ee5103d"
+  }
+ },
+ "git": {
+  "commit": "f732e4fa23812e21e2e0235fce09b9221ca66240",
+  "src_dirty": false
+ },
+ "scenarios": {
+  "control-gpu-p2": {
+   "fingerprint": "2990f752c9d99df0c7b69c65b35fa82fa85b8836b61fd83a67f106b906916587",
+   "key": "('control', ServerSpec(quant='BF16', gpu=True, ctx_size=8192, parallel=2, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), None, 'PASS')",
+   "reps": 8
+  },
+  "control-gpu-p1-smallbatch": {
+   "fingerprint": "71ea8e593c553c0754ee67f7c0c5f16887d86b9557e09e3d87ff6af9d75ff3db",
+   "key": "('control', ServerSpec(quant='BF16', gpu=True, ctx_size=4096, parallel=1, batch_size=128, ubatch_size=64, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), None, 'PASS')",
+   "reps": 8
+  },
+  "heldout-gpu-fa-off": {
+   "fingerprint": "59926fa01f86230a6ac5e1e3bb2a289916fa80a169880966e12020682c8110f2",
+   "key": "('control', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=('--flash-attn', 'off'), cache_ram_mib=0), None, 'PASS')",
+   "reps": 6
+  },
+  "heldout-gpu-p3-b1024": {
+   "fingerprint": "93a3c621056bb6041c12913034643a4190d3c2de5930f77919e50a30231f5fe1",
+   "key": "('control', ServerSpec(quant='BF16', gpu=True, ctx_size=12288, parallel=3, batch_size=1024, ubatch_size=256, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), None, 'PASS')",
+   "reps": 6
+  },
+  "heldout-gpu-p1-nocb": {
+   "fingerprint": "a73a1ddd8d38a377f29d3210c357544e378d0f0b4af6f11fe74d2e3973dd0c4a",
+   "key": "('control', ServerSpec(quant='BF16', gpu=True, ctx_size=4096, parallel=1, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=('--no-cont-batching',), cache_ram_mib=0), None, 'PASS')",
+   "reps": 5
+  },
+  "fault-template-llama3": {
+   "fingerprint": "3d8030978ae6bdc581bf674ebec05e23bfc9d3610b102303ef5e03b0c8ddcceb",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=('--chat-template', 'llama3'), cache_ram_mib=0), None, 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-template-nosystem": {
+   "fingerprint": "5601cd06214c88e5ccde18da3399267824b474736b18aac649df87f87332f307",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file='chatml-no-system.jinja', extra_args=(), cache_ram_mib=0), None, 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-quant-q8_0": {
+   "fingerprint": "59c02a0bf3defc06375f8028266fd1b534d0ff1426a81d2038b97e39ae79009a",
+   "key": "('fault', ServerSpec(quant='Q8_0', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), None, 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-quant-q4_k_m": {
+   "fingerprint": "b7cd339086959c41715357c03b7ca25a83dfc9035ec7a58a20c9f76f805b88ea",
+   "key": "('fault', ServerSpec(quant='Q4_K_M', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), None, 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-quant-q2_k": {
+   "fingerprint": "de9f8c004f36de4bd477871e23450f5d6ee76c35f6610ecd1d377b4613a25ecc",
+   "key": "('fault', ServerSpec(quant='Q2_K', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), None, 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-topk-ignored": {
+   "fingerprint": "52ded86bc0b6231d7fa88e94069846c8514d8e0718bb0213036ba0f244eb8bab",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), 'ignore_param(top_k=0)', 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-topp-ignored": {
+   "fingerprint": "6db18effaa08ac62047cf0dddd09887747cc32655af5f32aea70a780185e1a73",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), 'ignore_param(top_p=1.0)', 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-temperature-ignored": {
+   "fingerprint": "e38b33486a8e8e564b36c1f0de80db79d5ed8eda217b028e4a343a4fd946aa84",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), 'ignore_param(temperature=1.0)', 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-temperature-x1.5": {
+   "fingerprint": "e2e2d47302e93c44a3c95006efe20f913b61240cc634b84522c58a4b8d1c37af",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), 'scale_temperature(1.5)', 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-ctx-reduced": {
+   "fingerprint": "f06402cf94706fe50b4f346fd1e1df7e993a4450236850389edd74318a710e1c",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=2048, parallel=1, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), None, 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-silent-truncation": {
+   "fingerprint": "5a09d146c7696721b17d587ef4fccc100685ab1f2e2371f838059b8519e7a344",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), 'truncate_chat_prompt(6000)', 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-tools-dropped": {
+   "fingerprint": "e7bd511eb4d8c238c05c79e51b4787862a3dabaa225657d75cb1fcb0281b6c8d",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), 'drop_tools()', 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-tool-choice-ignored": {
+   "fingerprint": "9c57eafa3af6f1635f4f31ef8d81d770942ed492a02582e0e37923048c1afd87",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), 'ignore_tool_choice()', 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-tool-name-invalid": {
+   "fingerprint": "d10834e3e99e9dc48274baa79ad16543629141b20d15d9ea41d8667a8812bd10",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), 'rename_tool_calls(_v2)', 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-tool-args-malformed": {
+   "fingerprint": "1ba99df6d7c68fd2ea4b1891460a695ca6682e92fcebb41090ea4195051d38f6",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), 'malform_tool_arguments()', 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-tool-args-schema": {
+   "fingerprint": "b7d87aaf7dd8e3debce3207964ad3d7e28fb316293100568033a8b3499df57b5",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), 'break_argument_schema()', 'DEVIATION')",
+   "reps": 3
+  },
+  "fault-json-malformed": {
+   "fingerprint": "286956c4d5fdee586e2f60a7de9e7184c0dc9c2cd70b2b1c5c9a5ea7e6cc4d02",
+   "key": "('fault', ServerSpec(quant='BF16', gpu=True, ctx_size=16384, parallel=4, batch_size=None, ubatch_size=None, threads=None, template_file=None, extra_args=(), cache_ram_mib=0), 'malform_json_content()', 'DEVIATION')",
+   "reps": 3
+  }
+ }
+}
