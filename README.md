@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="Parity: is this endpoint really serving the model you think it is?" width="100%">
+  <img src="https://raw.githubusercontent.com/raunaksahahere/parity/main/docs/assets/banner.svg" alt="Parity: is this endpoint really serving the model you think it is?" width="100%">
 </p>
 
 <p align="center">
@@ -30,6 +30,12 @@ outputs.
 **Parity** sends cheap probes to the endpoint, runs the same inputs through a pinned reference
 implementation of the same model, and uses statistics to decide whether the two differ by more
 than the numerical noise that separates any two correct deployments.
+
+<p align="center">
+  <a href="https://github.com/raunaksahahere/parity/blob/main/docs/assets/parity-intro.mp4"><img src="https://raw.githubusercontent.com/raunaksahahere/parity/main/docs/assets/parity-intro.gif" alt="Parity in 30 seconds: same model name, same behaviour? Compare with a reference, six checks, differences made visible, three outcomes." width="380"></a>
+  <br>
+  <sub>▶ <a href="https://github.com/raunaksahahere/parity/blob/main/docs/assets/parity-intro.mp4">Watch the 30-second intro with sound</a> (MP4, 5.7 MB)</sub>
+</p>
 
 ```console
 $ parity run --model Qwen/Qwen3-0.6B --revision c1899de289a04d12100db370d81485cdf75e47ca \
