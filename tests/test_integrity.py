@@ -382,7 +382,7 @@ async def test_required_probes_that_are_skipped_turn_a_pass_into_inconclusive(
     plain, _, _ = setup(toy_kit, ep)
     rep2 = await plain.arun(target, ref)
     assert rep2.verdict is Status.PASS and rep2.lower_power
-    assert rep2.coverage is not None and len(rep2.coverage.evaluated) == 3
+    assert rep2.coverage is not None and len(rep2.coverage.evaluated) == 4
 
 
 def test_required_probe_names_are_validated() -> None:
@@ -405,9 +405,9 @@ async def test_markdown_reports_show_coverage_and_escape_cells(
     target = Target("http://h:1/v1", "m", adapter="openai", transport=ep.transport())
     rep = await suite.arun(target, ref)
     md = to_markdown(rep)
-    assert "**Coverage: 3/6 probes evaluated.**" in md and "| Skipped probe | Why |" in md
+    assert "**Coverage: 4/6 probes evaluated.**" in md and "| Skipped probe | Why |" in md
     assert "\\|token count difference\\|" in md  # a bare | would break the table
-    assert "Coverage: 3/6 probes evaluated" in to_html(rep)
+    assert "Coverage: 4/6 probes evaluated" in to_html(rep)
 
 
 # -- study-level -----------------------------------------------------------------------------------
@@ -423,3 +423,19 @@ def test_study_rows_from_another_configuration_are_refused() -> None:
     legacy = {"scenario": "control-a", "verdict": "PASS"}  # a parity 0.1.0 row
     with pytest.raises(StudyMismatchError):
         _check_saved_rows([legacy], "s1", {"control-a": "c1"})
+
+
+async def test_no_pass_without_model_identity_evidence(toy_kit: TokenizerKit) -> None:
+    """Without a reference the identity probes cannot run. A correct serving stack is then not
+    enough for a PASS, unless the caller explicitly accepts that."""
+    ep = FakeEndpoint(toy_kit, seed=17)
+    target = Target("http://h:1/v1", "m", transport=ep.transport())
+    no_ref = Reference(toy_kit, None, info())
+    rep = await Suite(options=FAST).arun(target, no_ref)
+    assert rep.verdict is Status.INCONCLUSIVE and rep.exit_code == 2
+    assert "PASS is withheld" in rep.summary
+    allowed = await Suite(options=FAST, allow_unverified_pass=True).arun(target, no_ref)
+    assert allowed.verdict is Status.PASS and "PASS is withheld" in allowed.summary
+    # a run that never asked for identity probes is judged on what it asked for
+    quick = await Suite(options=FAST, probes=["template.token_counts"]).arun(target, no_ref)
+    assert quick.verdict is Status.PASS

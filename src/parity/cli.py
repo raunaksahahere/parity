@@ -138,6 +138,13 @@ def run(
             "repeatable). If one is skipped or inconclusive, a PASS becomes INCONCLUSIVE."
         ),
     ] = None,
+    allow_unverified_pass: Annotated[
+        bool,
+        typer.Option(
+            help="Accept a PASS even if no model-identity probe (distribution, greedy) could "
+            "reach a decision. Without this such a run is INCONCLUSIVE."
+        ),
+    ] = False,
 ) -> None:
     """Compare an endpoint with a reference implementation of the same model."""
     try:
@@ -149,6 +156,7 @@ def run(
             name=suite, alpha=alpha, budget=budget, seed=seed, probes=probes,
             options={"claimed_context": claimed_context}, calibration=cal,
             calibration_path=str(calibration or ""), fail_fast=fail_fast, require=require_probe,
+            allow_unverified_pass=allow_unverified_pass,
         )  # fmt: skip
         tgt = Target(target, served_model or model, adapter, api_key_env, concurrency, rate_per_s)
         s.check_calibration(ref)  # refuse an incompatible calibration before any request
@@ -262,6 +270,42 @@ def calibrate(
     for metric, mc in cal.metrics.items():
         typer.echo(f"  {metric}: threshold {mc.threshold:.4g} from {mc.benign_values}")
     typer.echo(f"wrote {out}")
+
+
+@app.command()
+def doctor(
+    target: Annotated[str, typer.Option(help="Base URL of the endpoint to examine")],
+    served_model: Annotated[str, typer.Option(help="Model name sent to the endpoint")],
+    adapter: Annotated[str, typer.Option(help="auto, llamacpp, vllm, ollama or openai")] = "auto",
+    api_key_env: Annotated[
+        str | None, typer.Option(help="Env var holding the endpoint API key")
+    ] = None,
+) -> None:
+    """Check what an endpoint can be tested for, before running the suite (about 7 requests).
+
+    Exit code 0 if a model-identity probe can run, 2 if none can (a run could not PASS).
+    """
+    from parity.doctor import diagnose
+
+    try:
+        d = asyncio.run(diagnose(target, served_model, adapter=adapter, api_key_env=api_key_env))
+    except Exception as exc:
+        raise _fail(f"{type(exc).__name__}: {exc}") from exc
+    typer.echo(f"Endpoint {sanitize_url(target)} looks like: {d.adapter} ({d.requests} requests)")
+    typer.echo("\nCapabilities")
+    for c in d.checks:
+        typer.echo(f"  {'yes' if c.ok else 'no ':3s}  {c.name:28s} {c.detail}")
+    typer.echo("\nProbe coverage to expect")
+    for pid, mode in d.probes.items():
+        typer.echo(f"  {pid:30s} {mode}")
+    if d.identity_checkable:
+        typer.echo("\nA model-identity probe can run on this endpoint.")
+        raise typer.Exit(0)
+    typer.echo(
+        "\nNo model-identity probe can run on this endpoint: `parity run` could describe the "
+        "serving stack but would not return PASS."
+    )
+    raise typer.Exit(ERROR_EXIT)
 
 
 @app.command("list-probes")

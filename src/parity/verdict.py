@@ -8,6 +8,13 @@ from parity.stats.multitest import holm_bonferroni
 
 EXIT_CODES = {Status.PASS: 0, Status.DEVIATION: 1, Status.INCONCLUSIVE: 2}
 CORE_STATISTICAL = ("distribution.teacher_forced", "sampler.conformance")
+# Probes whose result depends on which weights are served. Template, long-context, sampler and
+# tool checks describe the serving stack; they pass for any model behind a correct stack.
+IDENTITY_PROBES = ("distribution.teacher_forced", "greedy.agreement")
+NO_IDENTITY = (
+    "No model-identity probe (distribution, greedy) reached a decision, so nothing here shows "
+    "which weights are served and a PASS is withheld."
+)
 
 
 def decide(results: list[ProbeResult], alpha: float) -> tuple[list[ProbeOutcome], Status, bool]:
@@ -64,6 +71,7 @@ def summarize(
     overall: Status,
     lower_power: bool,
     unmet_required: list[str] | None = None,
+    no_identity: bool = False,
 ) -> str:
     dev = [o.result.probe for o in outcomes if o.final_status is Status.DEVIATION]
     inc = [o.result.probe for o in outcomes if o.final_status is Status.INCONCLUSIVE]
@@ -80,6 +88,8 @@ def summarize(
         text += " Some core probes could not run, so this result has lower power."
     if unmet_required:
         text += " Required probes did not reach a decision: " + ", ".join(unmet_required) + "."
+    if no_identity:
+        text += " " + NO_IDENTITY
     return text
 
 
@@ -117,3 +127,19 @@ def coverage_line(cov: Coverage) -> str:
     if cov.unmet_required:
         text += "; REQUIRED BUT NOT EVALUATED: " + ", ".join(cov.unmet_required)
     return text
+
+
+def identity_unverified(outcomes: list[ProbeOutcome]) -> bool:
+    """True when identity probes were part of the run but none of them reached a decision."""
+    selected = [o for o in outcomes if o.result.probe in IDENTITY_PROBES]
+    return bool(selected) and not any(
+        o.final_status in (Status.PASS, Status.DEVIATION) for o in selected
+    )
+
+
+def apply_identity_rule(overall: Status, outcomes: list[ProbeOutcome], allow: bool) -> Status:
+    """A PASS needs evidence about the weights. Without it the run is INCONCLUSIVE, unless the
+    caller explicitly accepts a PASS that only describes the serving stack."""
+    if overall is Status.PASS and not allow and identity_unverified(outcomes):
+        return Status.INCONCLUSIVE
+    return overall

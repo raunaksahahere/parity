@@ -90,9 +90,9 @@ async def test_ollama_endpoint_runs_the_chat_probes_and_reports_coverage(
     assert st["template.token_counts"] is Status.PASS
     assert rep.coverage is not None and set(rep.coverage.skipped) == {
         "distribution.teacher_forced",
-        "greedy.agreement",
         "sampler.conformance",
     }
+    assert st["greedy.agreement"] is Status.PASS  # chat mode: an identity check still ran
     assert rep.verdict is Status.PASS and rep.lower_power
     tools = next(o.result for o in rep.probes if o.result.probe == "tools.structured")
     assert any("no tool format" in n for n in tools.notes)  # skipped, JSON still tested
@@ -142,3 +142,77 @@ async def test_llamacpp_generic_tool_prompt_is_not_blamed_on_a_model_without_too
     assert res.status is Status.PASS, [f.message for f in res.findings]
     assert any("no tool format" in n for n in res.notes)
     assert CHATML != NO_TOOLS_TEMPLATE  # the default toy template does have a tool format
+
+
+async def test_chat_mode_greedy_gives_text_only_endpoints_an_identity_check(
+    toy_kit: TokenizerKit,
+) -> None:
+    """Honest endpoint: the chat replies match the reference. Another model behind the same
+    name: the greedy probe reports a deviation although no token-id prompt was possible."""
+    from tests.fake_lm import FakeLM
+
+    kit = no_tool_kit(toy_kit)
+    ref = Reference(kit, SuiteReference(kit), INFO)
+    suite = Suite(options=FAST, probes=["greedy.agreement"])
+    honest = OllamaLike(kit, seed=4)
+    rep = await suite.arun(Target("http://h:1/v1", "m", transport=honest.transport()), ref)
+    res = rep.probes[0].result
+    assert res.status is Status.PASS, [f.message for f in res.findings]
+    assert res.metrics["chat_mode"] == 1.0 and res.metrics["divergences"] == 0
+    assert any("chat mode" in n for n in res.notes)
+
+    other = OllamaLike(kit, lm=FakeLM(noise=0.6), seed=5)
+    rep = await suite.arun(Target("http://h:1/v1", "m", transport=other.transport()), ref)
+    assert rep.probes[0].result.status is Status.DEVIATION
+    assert rep.verdict is Status.DEVIATION
+
+
+def test_chat_mode_hazard_is_calibrated_under_its_own_key() -> None:
+    from parity.probes.base import ProbeResult
+    from parity.stats.calibration import benign_values
+
+    def result(chat: float) -> ProbeResult:
+        return ProbeResult(
+            probe="greedy.agreement", family="greedy", version="1", status=Status.PASS,
+            metrics={"trials": 400.0, "divergences": 1.0, "chat_mode": chat},
+        )  # fmt: skip
+
+    assert set(benign_values(result(1.0))) == {"greedy_chat_hazard"}
+    assert set(benign_values(result(0.0))) == {"greedy_hazard"}
+
+
+async def test_doctor_predicts_probe_coverage(toy_kit: TokenizerKit) -> None:
+    from parity.doctor import diagnose
+
+    kit = no_tool_kit(toy_kit)
+    d = await diagnose("http://h:11434", "m", transport=OllamaLike(kit).transport())
+    assert d.adapter == "ollama" and d.requests <= 8
+    assert not d.ok("token-id prompts") and not d.ok("tools") and d.ok("usage.prompt_tokens")
+    assert d.probes["distribution.teacher_forced"].startswith("cannot run")
+    assert d.probes["greedy.agreement"].startswith("chat mode")
+    assert d.probes["tools.structured"].startswith("structured output only")
+    assert d.identity_checkable  # through chat-mode greedy
+
+    full = await diagnose("http://h:8080", "m", transport=FakeEndpoint(toy_kit).transport())
+    assert full.adapter == "llamacpp" and full.ok("token-id prompts")
+    assert full.probes["greedy.agreement"].startswith("full")
+
+
+def test_doctor_command_reports_and_sets_the_exit_code(
+    toy_kit: TokenizerKit, monkeypatch: Any
+) -> None:
+    from typer.testing import CliRunner
+
+    import parity.doctor as doctor
+    from parity.cli import app
+
+    dead = httpx.MockTransport(lambda request: httpx.Response(404, json={"error": "nope"}))
+    real = doctor.diagnose
+
+    async def patched(*a: Any, **k: Any) -> Any:
+        return await real(*a, **{**k, "transport": dead})
+
+    monkeypatch.setattr(doctor, "diagnose", patched)
+    res = CliRunner().invoke(app, ["doctor", "--target", "http://h:1", "--served-model", "m"])
+    assert res.exit_code == 2 and "No model-identity probe can run" in res.output
+    assert "cannot run" in res.output

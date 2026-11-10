@@ -30,6 +30,7 @@ CALIBRATION_SETTINGS = (
 METRIC_PROBES = {
     "kl_mean": "distribution.teacher_forced",
     "greedy_hazard": "greedy.agreement",
+    "greedy_chat_hazard": "greedy.agreement",
     "tool_disagreement": "tools.structured",
 }
 
@@ -191,7 +192,12 @@ def calibrate_threshold(
     )
 
 
-FLOORS = {"kl_mean": 1e-5, "greedy_hazard": 0.002, "tool_disagreement": 0.05}
+FLOORS = {
+    "kl_mean": 1e-5,
+    "greedy_hazard": 0.002,
+    "greedy_chat_hazard": 0.002,
+    "tool_disagreement": 0.05,
+}
 
 
 def wilson_upper(events: float, trials: float, confidence: float = 0.95) -> float:
@@ -213,7 +219,8 @@ def benign_values(result: ProbeResult) -> dict[str, float]:
     if result.probe == "distribution.teacher_forced" and "kl_ci_hi" in m:
         out["kl_mean"] = m["kl_ci_hi"]
     elif result.probe == "greedy.agreement" and "trials" in m:
-        out["greedy_hazard"] = wilson_upper(m["divergences"], m["trials"])
+        key = "greedy_chat_hazard" if m.get("chat_mode") else "greedy_hazard"
+        out[key] = wilson_upper(m["divergences"], m["trials"])
     elif result.probe == "tools.structured" and "trigger_disagreements" in m:
         out["tool_disagreement"] = wilson_upper(m["trigger_disagreements"], m["trigger_prompts"])
     return out

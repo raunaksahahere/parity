@@ -267,6 +267,7 @@ reports; target URLs are stored without credentials or query strings.
 | | |
 |---|---|
 | 📐 [Methodology](docs/methodology.md) | Every statistical procedure and where it can mislead |
+| 🛡️ [What Parity can and cannot establish](docs/threat-model.md) | What a PASS rests on, and what can still slip through |
 | 🧪 [Validation study](docs/validation.md) | Controls, injected faults, raw data in [docs/data](docs/data) |
 | 📉 [Baseline noise](docs/baseline-noise.md) | How much two correct deployments differ |
 | 🧭 [Decisions](docs/decisions.md) | Non-obvious choices, recorded as they were made |

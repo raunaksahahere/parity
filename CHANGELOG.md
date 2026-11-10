@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0 (unreleased, branch dev/v0.2)
+
+* **No PASS without identity evidence.** A run in which no model-identity probe (distribution,
+  greedy) reached a decision is INCONCLUSIVE; `--allow-unverified-pass` restores the old
+  behaviour. Template, long-context, sampler and tool probes describe the serving stack only.
+* **Greedy probe, chat mode.** Endpoints without token-id prompts (Ollama, hosted APIs) get an
+  identity check: temperature-0 chat replies are compared with the reference as text, with a
+  separate calibrated threshold (`greedy_chat_hazard`).
+* **`parity doctor`**: a preflight of about 7 requests that reports an endpoint's capabilities
+  and the probe coverage to expect; exit code 2 if no identity probe can run.
+* **Ollama adapter** (detected from `/api/version`), verified against Ollama 0.33.2.
+* Template probe v2 and tools probe v3 skip tool checks, with the reason, when the official
+  template has no tool format or the endpoint rejects tools.
+* Validation harness: model families (Qwen3-0.6B, SmolLM2-360M-Instruct).
+* [docs/threat-model.md](docs/threat-model.md): what a PASS rests on and what can still pass.
+* Live adapter contract tests and a vLLM harness for hardware that can run vLLM.
+
 ## 0.1.1 (unreleased)
 
 Reliability release: results can no longer be influenced by an incompatible calibration or by

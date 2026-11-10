@@ -43,7 +43,15 @@ from parity.report_model import CalibrationInfo, ReferenceInfo, RunReport, Targe
 from parity.stats.calibration import CALIBRATION_SETTINGS, Calibration, CalibrationContext
 from parity.suites import DEFAULT_SUITE
 from parity.tokenization import TokenizerKit
-from parity.verdict import EXIT_CODES, apply_requirements, coverage, decide, summarize
+from parity.verdict import (
+    EXIT_CODES,
+    apply_identity_rule,
+    apply_requirements,
+    coverage,
+    decide,
+    identity_unverified,
+    summarize,
+)
 
 PROBE_CLASSES: dict[str, type[Probe]] = {
     c.id: c
@@ -210,6 +218,8 @@ class Suite:
     # probes (ids, family names or "all") that must reach PASS or DEVIATION; otherwise a PASS
     # becomes INCONCLUSIVE
     require: list[str] | None = None
+    # accept a PASS although no model-identity probe (distribution, greedy) reached a decision
+    allow_unverified_pass: bool = False
 
     def probe_ids(self) -> list[str]:
         ids = self.probes or SUITES[self.name]
@@ -301,6 +311,7 @@ class Suite:
                     "budget": self.budget,
                     "seed": self.seed,
                     "fail_fast": self.fail_fast,
+                    "allow_unverified_pass": self.allow_unverified_pass,
                 },
                 "options": canonical({k: v for k, v in options.items() if k != "thresholds"}),
                 "calibration": self.calibration.fingerprint() if self.calibration else None,
@@ -363,6 +374,8 @@ class Suite:
         outcomes, overall, lower_power = decide(results, self.alpha)
         cov = coverage(outcomes, required)
         overall = apply_requirements(overall, cov)
+        no_identity = identity_unverified(outcomes)
+        overall = apply_identity_rule(overall, outcomes, self.allow_unverified_pass)
         caps = adapter.capabilities
         report = RunReport(
             parity_version=__version__,
@@ -402,7 +415,13 @@ class Suite:
             verdict=overall,
             exit_code=EXIT_CODES[overall],
             lower_power=lower_power,
-            summary=summarize(outcomes, overall, lower_power, cov.unmet_required),
+            summary=summarize(
+                outcomes,
+                overall,
+                lower_power,
+                cov.unmet_required,
+                no_identity and overall is not Status.DEVIATION,
+            ),
         )
         if run_dir:
             (run_dir / "report.json").write_text(report.model_dump_json(indent=1))

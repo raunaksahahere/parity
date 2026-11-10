@@ -43,3 +43,10 @@ class TokenizerKit:
 
     def chat_token_ids(self, messages: Sequence[dict[str, Any]], **kwargs: Any) -> list[int]:
         return self.encode(self.render_chat(messages, **kwargs))
+
+    def stop_strings(self) -> list[str]:
+        """Special-token strings that end an assistant turn (EOS and friends)."""
+        tok = self.tokenizer
+        out = [str(t) for t in (getattr(tok, "eos_token", None),) if t]
+        out += [str(t) for t in getattr(tok, "all_special_tokens", []) if str(t) not in out]
+        return out

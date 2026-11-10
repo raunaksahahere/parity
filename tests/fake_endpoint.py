@@ -139,6 +139,18 @@ class FakeEndpoint:
         elif "vault passphrase" in prompt:
             m = re.search(r"vault passphrase is (\S+?)\.", self.kit.decode(ids))
             msg = {"content": m.group(1) if m else "unknown"}
+        elif not tools and int(body.get("max_tokens", 1)) > 1:
+            # a plain chat: the model's own greedy continuation, cut at a stop token
+            out = list(ids)
+            for _ in range(int(body["max_tokens"])):
+                out.append(int(np.argmax(self.lm.logprobs(out))))
+            text = self.kit.decode(out[len(ids) :])
+            cut = min((text.find(t) for t in self.kit.stop_strings() if t in text), default=-1)
+            msg = {"content": text if cut < 0 else text[:cut]}
+            finish = "length" if cut < 0 else "stop"
+            return httpx.Response(
+                200, json={"choices": [{"message": msg, "finish_reason": finish}], "usage": usage}
+            )
         finish = "tool_calls" if msg.get("tool_calls") else "stop"
         return httpx.Response(
             200, json={"choices": [{"message": msg, "finish_reason": finish}], "usage": usage}
