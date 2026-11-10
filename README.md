@@ -57,12 +57,17 @@ Verdict: PASS. No deviation from the reference was detected by the evaluated pro
 
 | Verdict | Exit | Meaning |
 |---|:-:|---|
-| ✅ **PASS** | `0` | No difference beyond calibrated benign variation was found by the probes that ran. |
+| ✅ **PASS** | `0` | No difference beyond calibrated benign variation was found, **and** at least one model-identity probe (distribution or greedy) reached a decision. |
 | ❌ **DEVIATION** | `1` | Behaviour differs from the reference, with evidence, and the report names the probe that found it. |
 | ⚠️ **INCONCLUSIVE** | `2` | Not enough evidence either way (or an error). Parity never guesses. |
 
-Every report also lists what the result does **not** prove. A verdict is evidence, not a
-certificate ([limits](#limits-read-these)).
+Template, long-context, sampler and tool checks describe the serving software, so they pass for
+any model behind a correct stack. That is why a PASS needs an identity probe; without one the
+run is INCONCLUSIVE. Every report lists what the result does **not** prove: a verdict is evidence,
+not a certificate ([what Parity can and cannot establish](docs/threat-model.md)).
+
+**Before a run**, `parity doctor --target URL --served-model NAME` sends about 7 requests and
+tells you which probes the endpoint supports, so you know what a verdict will rest on.
 
 ## What it catches
 
@@ -90,6 +95,9 @@ every repetition** of the [validation study](docs/validation.md).
 | 🛠️ | `tools.structured` | Are tool calls and JSON outputs valid, and like the reference's? | Tool-name and argument-schema validity, JSON-schema adherence, trigger agreement vs the reference |
 
 Probes run cheapest first, so `--fail-fast` reaches a DEVIATION after as few as 7 requests.
+On endpoints that cannot take token-id prompts (Ollama, most hosted APIs) the greedy probe runs in
+**chat mode**: temperature-0 replies are compared with the reference as text, so even a chat-only
+endpoint gets a model-identity check.
 
 ## Quickstart
 
@@ -235,7 +243,7 @@ print(report.verdict, report.exit_code)
 **Canary mode**: `parity canary --interval 3600 --port 9108 ...` runs the suite on a schedule and
 serves Prometheus metrics (`parity_verdict`, `parity_probe_status`, ...).
 
-**CLI**: `parity run | report | calibrate | list-probes | history | canary | inject-faults`.
+**CLI**: `parity doctor | run | report | calibrate | list-probes | history | canary | inject-faults`.
 Secrets are read from environment variables only (`--api-key-env NAME`) and never written to
 reports; target URLs are stored without credentials or query strings.
 
@@ -256,7 +264,8 @@ reports; target URLs are stored without credentials or query strings.
   look like a deviation.
 - **KL is a lower bound** (truncated top-k), so the true divergence can be larger.
 - **Capabilities gate power.** Endpoints without token-id prompts or log-probs skip the
-  distribution, greedy and sampler probes; the report says so.
+  distribution and sampler probes and run greedy in chat mode, which catches a different model or
+  coarse quantization but not near-lossless changes; the report's coverage block says so.
 - **Validated scope.** Live validation so far: one small model (Qwen3-0.6B) on llama.cpp. The vLLM
   and generic OpenAI adapters are built from documented formats and tested with fixtures only. The
   tool probe has little statistical power with its current prompt set. The shipped corpus is small
