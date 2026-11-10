@@ -24,7 +24,11 @@ from parity.adapters.openai import OpenAIAdapter
 class OllamaAdapter(OpenAIAdapter):
     name = "ollama"
     capabilities = Capabilities(
-        token_id_prompts=False, prompt_logprobs=False, top_logprobs=False, max_top_k=0
+        token_id_prompts=False,
+        prompt_logprobs=False,
+        top_logprobs=False,
+        max_top_k=20,
+        chat_logprobs=True,
     )
 
     def chat_params(self, params: dict[str, Any]) -> dict[str, Any]:

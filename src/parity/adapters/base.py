@@ -18,6 +18,9 @@ class Capabilities:
     prompt_logprobs: bool  # returns log-probs of prompt tokens in one request
     top_logprobs: bool  # returns top-k alternatives at each position
     max_top_k: int = 20
+    # chat completions report top-k log-probs of generated tokens (used when token-id prompts
+    # are unavailable)
+    chat_logprobs: bool = False
 
 
 class Adapter(ABC):

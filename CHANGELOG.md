@@ -8,6 +8,10 @@
 * **Greedy probe, chat mode.** Endpoints without token-id prompts (Ollama, hosted APIs) get an
   identity check: temperature-0 chat replies are compared with the reference as text, with a
   separate calibrated threshold (`greedy_chat_hazard`).
+* **Distribution probe, chat mode.** Endpoints that report log-probs of generated tokens get a
+  probability-level comparison on their own temperature-0 replies, aligned to the reference by
+  token bytes (threshold `kl_chat_mean`); prompts whose prompt-token count shows another chat
+  template are skipped.
 * **`parity doctor`**: a preflight of about 7 requests that reports an endpoint's capabilities
   and the probe coverage to expect; exit code 2 if no identity probe can run.
 * **Ollama adapter** (detected from `/api/version`), verified against Ollama 0.33.2.

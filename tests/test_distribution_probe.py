@@ -67,11 +67,13 @@ async def test_no_reference_is_skipped(toy_kit: TokenizerKit) -> None:
         assert (await DistributionProbe().run(ctx)).status is Status.SKIPPED
 
 
-async def test_text_only_target_is_skipped_with_an_alignment_note(toy_kit: TokenizerKit) -> None:
+async def test_text_only_target_is_skipped_with_an_alignment_note(
+    toy_kit: TokenizerKit, text_only_adapter: str
+) -> None:
     async with EndpointClient("http://x", transport=lm_server(FakeLM())) as c:
         ctx = ProbeContext(
             client=c,
-            adapter=get_adapter("openai"),
+            adapter=get_adapter(text_only_adapter),
             model="m",
             kit=toy_kit,
             reference=FakeReference(FakeLM()),

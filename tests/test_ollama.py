@@ -86,13 +86,11 @@ async def test_ollama_endpoint_runs_the_chat_probes_and_reports_coverage(
     rep = await suite.arun(target, Reference(kit, SuiteReference(kit), INFO))
     assert rep.target.adapter == "ollama"  # detected from /api/version
     st = {o.result.probe: o.final_status for o in rep.probes}
-    assert st["distribution.teacher_forced"] is Status.SKIPPED
+    assert st["distribution.teacher_forced"] is Status.PASS  # chat log-probs
     assert st["template.token_counts"] is Status.PASS
-    assert rep.coverage is not None and set(rep.coverage.skipped) == {
-        "distribution.teacher_forced",
-        "sampler.conformance",
-    }
-    assert st["greedy.agreement"] is Status.PASS  # chat mode: an identity check still ran
+    assert rep.coverage is not None and set(rep.coverage.skipped) == {"sampler.conformance"}
+    assert st["greedy.agreement"] is Status.PASS  # chat mode: identity checks still ran
+    assert st["distribution.teacher_forced"] is Status.PASS
     assert rep.verdict is Status.PASS and rep.lower_power
     tools = next(o.result for o in rep.probes if o.result.probe == "tools.structured")
     assert any("no tool format" in n for n in tools.notes)  # skipped, JSON still tested
@@ -188,7 +186,7 @@ async def test_doctor_predicts_probe_coverage(toy_kit: TokenizerKit) -> None:
     d = await diagnose("http://h:11434", "m", transport=OllamaLike(kit).transport())
     assert d.adapter == "ollama" and d.requests <= 8
     assert not d.ok("token-id prompts") and not d.ok("tools") and d.ok("usage.prompt_tokens")
-    assert d.probes["distribution.teacher_forced"].startswith("cannot run")
+    assert d.probes["distribution.teacher_forced"].startswith("chat mode")
     assert d.probes["greedy.agreement"].startswith("chat mode")
     assert d.probes["tools.structured"].startswith("structured output only")
     assert d.identity_checkable  # through chat-mode greedy
@@ -216,3 +214,32 @@ def test_doctor_command_reports_and_sets_the_exit_code(
     res = CliRunner().invoke(app, ["doctor", "--target", "http://h:1", "--served-model", "m"])
     assert res.exit_code == 2 and "No model-identity probe can run" in res.output
     assert "cannot run" in res.output
+
+
+async def test_chat_mode_distribution_compares_probabilities_on_text_only_endpoints(
+    toy_kit: TokenizerKit,
+) -> None:
+    """Chat log-probs give a probability-level identity check without token-id prompts: a
+    slightly perturbed model (same greedy text, different probabilities) is caught."""
+    from tests.fake_lm import FakeLM
+
+    kit = no_tool_kit(toy_kit)
+    ref = Reference(kit, SuiteReference(kit), INFO)
+    suite = Suite(options=FAST, probes=["distribution.teacher_forced"])
+    honest = await suite.arun(
+        Target("http://h:1/v1", "m", transport=OllamaLike(kit, seed=6).transport()), ref
+    )
+    res = honest.probes[0].result
+    assert res.status is Status.PASS, [f.message for f in res.findings] + res.notes
+    assert res.metrics["chat_mode"] == 1.0 and res.metrics["documents"] >= 5
+    assert res.effect is not None and res.effect < 1e-6
+
+    shifted = OllamaLike(kit, lm=FakeLM(noise=0.6), seed=7)
+    bad = await suite.arun(Target("http://h:1/v1", "m", transport=shifted.transport()), ref)
+    assert bad.probes[0].result.status is Status.DEVIATION
+
+    # a server that counts prompt tokens differently (another template) is not compared
+    skewed = OllamaLike(kit, extra_prompt_tokens=2, seed=8)
+    rep = await suite.arun(Target("http://h:1/v1", "m", transport=skewed.transport()), ref)
+    out = rep.probes[0].result
+    assert out.status is Status.SKIPPED and any("prompt tokens" in n for n in out.notes)

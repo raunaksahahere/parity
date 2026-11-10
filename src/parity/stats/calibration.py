@@ -29,6 +29,7 @@ CALIBRATION_SETTINGS = (
 )
 METRIC_PROBES = {
     "kl_mean": "distribution.teacher_forced",
+    "kl_chat_mean": "distribution.teacher_forced",
     "greedy_hazard": "greedy.agreement",
     "greedy_chat_hazard": "greedy.agreement",
     "tool_disagreement": "tools.structured",
@@ -194,6 +195,7 @@ def calibrate_threshold(
 
 FLOORS = {
     "kl_mean": 1e-5,
+    "kl_chat_mean": 1e-5,
     "greedy_hazard": 0.002,
     "greedy_chat_hazard": 0.002,
     "tool_disagreement": 0.05,
@@ -217,7 +219,7 @@ def benign_values(result: ProbeResult) -> dict[str, float]:
     m = {k: v for k, v in result.metrics.items() if v is not None}
     out: dict[str, float] = {}
     if result.probe == "distribution.teacher_forced" and "kl_ci_hi" in m:
-        out["kl_mean"] = m["kl_ci_hi"]
+        out["kl_chat_mean" if m.get("chat_mode") else "kl_mean"] = m["kl_ci_hi"]
     elif result.probe == "greedy.agreement" and "trials" in m:
         key = "greedy_chat_hazard" if m.get("chat_mode") else "greedy_hazard"
         out[key] = wilson_upper(m["divergences"], m["trials"])

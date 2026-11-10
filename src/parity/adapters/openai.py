@@ -19,7 +19,11 @@ from parity.schema import Completion, PositionLogprobs
 class OpenAIAdapter(Adapter):
     name = "openai"
     capabilities = Capabilities(
-        token_id_prompts=False, prompt_logprobs=True, top_logprobs=True, max_top_k=5
+        token_id_prompts=False,
+        prompt_logprobs=True,
+        top_logprobs=True,
+        max_top_k=5,
+        chat_logprobs=True,
     )
 
     async def teacher_force(

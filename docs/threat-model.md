@@ -26,7 +26,8 @@ model behind a correct stack, which is why they cannot carry a PASS on their own
 | Endpoint offers | Identity probes that run | Strength |
 |---|---|---|
 | Token-id prompts and top-k log-probs (llama.cpp, vLLM) | distribution (KL on next-token probabilities) and greedy (token level) | Strongest: detected Q8_0 quantization, a KL of about 1e-3 nats |
-| Chat only (Ollama, most hosted APIs) | greedy in chat mode: replies at temperature 0 compared as text | Weaker: catches different checkpoints and coarse quantization; near-lossless changes can pass. The chat template is part of the comparison |
+| Chat with log-probs of generated tokens (Ollama, OpenAI-style APIs) | distribution in chat mode (KL on the endpoint's own replies) and greedy in chat mode | Probability level on the tested replies; aligned by token bytes, so replies with unmappable tokens are shortened. The chat template is part of the comparison |
+| Chat only, no log-probs | greedy in chat mode: replies at temperature 0 compared as text | Weaker: catches different checkpoints and coarse quantization; near-lossless changes can pass |
 | No reference available | none | No PASS is possible |
 
 Run `parity doctor --target URL --served-model NAME` to see which row applies before spending a
@@ -62,9 +63,10 @@ differ in detail.
 * **Forged log-probs.** A server could report log-probs from the genuine model while sampling
   from another. The sampler probe compares samples with the reported distribution, which
   catches inconsistent forgeries on the tested contexts, not all of them.
-* **Text-only endpoints.** In chat mode there are no log-probs to compare, so only the greedy
-  path is tested; a model that agrees on the most likely tokens but differs in probabilities
-  passes.
+* **Text-only endpoints without log-probs.** Only the greedy path is tested; a model that
+  agrees on the most likely tokens but differs in probabilities passes. With chat log-probs the
+  distribution probe compares probabilities, but only along the endpoint's own replies, which a
+  serving stack chooses; teacher forcing on a fixed corpus needs token-id prompts.
 
 ## What can be flagged although nothing is wrong
 

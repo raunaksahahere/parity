@@ -50,3 +50,26 @@ class TokenizerKit:
         out = [str(t) for t in (getattr(tok, "eos_token", None),) if t]
         out += [str(t) for t in getattr(tok, "all_special_tokens", []) if str(t) not in out]
         return out
+
+    def bytes_to_id(self) -> dict[bytes, int]:
+        """Map each vocabulary entry's text bytes to its id, for entries whose bytes are unique
+        and decode cleanly (partial UTF-8 pieces and duplicates are left out). Used to align
+        tokens an endpoint reports as text with the reference's token ids."""
+        cached: dict[bytes, int] | None = getattr(self, "_bytes_to_id", None)
+        if cached is not None:
+            return cached
+        tok = self.tokenizer
+        seen: dict[bytes, int] = {}
+        dup: set[bytes] = set()
+        for i in range(len(tok)):
+            text = tok.decode([i], skip_special_tokens=False)
+            if not text or "\ufffd" in text:
+                continue
+            b = text.encode("utf-8")
+            if b in seen:
+                dup.add(b)
+            else:
+                seen[b] = i
+        out = {b: i for b, i in seen.items() if b not in dup}
+        self._bytes_to_id = out
+        return out

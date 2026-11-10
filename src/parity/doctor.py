@@ -176,7 +176,9 @@ async def diagnose(
         else no_chat,
         "distribution.teacher_forced": "full"
         if ids and lp
-        else "cannot run: needs token-id prompts and top-k log-probs",
+        else "chat mode (on the endpoint's own replies)"
+        if d.ok("chat log-probs")
+        else "cannot run: needs token-id prompts and top-k log-probs, or chat log-probs",
         "sampler.conformance": "full"
         if ids and lp
         else "cannot run: needs token-id prompts and top-k log-probs",

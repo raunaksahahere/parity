@@ -367,11 +367,11 @@ async def test_the_client_never_exceeds_its_request_limit(toy_kit: TokenizerKit)
 
 
 async def test_required_probes_that_are_skipped_turn_a_pass_into_inconclusive(
-    toy_kit: TokenizerKit,
+    toy_kit: TokenizerKit, text_only_adapter: str
 ) -> None:
     ep = FakeEndpoint(toy_kit, seed=15)
     suite, _, ref = setup(toy_kit, ep, require=["template", "distribution"])
-    target = Target("http://h:1/v1", "m", adapter="openai", transport=ep.transport())
+    target = Target("http://h:1/v1", "m", adapter=text_only_adapter, transport=ep.transport())
     rep = await suite.arun(target, ref)
     assert rep.coverage is not None
     assert "distribution.teacher_forced" in rep.coverage.skipped
@@ -396,13 +396,13 @@ def test_required_probe_names_are_validated() -> None:
 
 
 async def test_markdown_reports_show_coverage_and_escape_cells(
-    toy_kit: TokenizerKit,
+    toy_kit: TokenizerKit, text_only_adapter: str
 ) -> None:
     from parity.render import to_html, to_markdown
 
     ep = FakeEndpoint(toy_kit, seed=16)
     suite, _, ref = setup(toy_kit, ep)
-    target = Target("http://h:1/v1", "m", adapter="openai", transport=ep.transport())
+    target = Target("http://h:1/v1", "m", adapter=text_only_adapter, transport=ep.transport())
     rep = await suite.arun(target, ref)
     md = to_markdown(rep)
     assert "**Coverage: 4/6 probes evaluated.**" in md and "| Skipped probe | Why |" in md

@@ -39,3 +39,21 @@ def toy_kit() -> TokenizerKit:
     tok.train_from_iterator(TRAIN_TEXT, trainer)
     fast = PreTrainedTokenizerFast(tokenizer_object=tok, chat_template=CHATML)
     return TokenizerKit(fast)
+
+
+@pytest.fixture
+def text_only_adapter(monkeypatch: pytest.MonkeyPatch) -> str:
+    """Register an adapter for an endpoint with neither token-id prompts nor any log-probs
+    (the weakest kind of endpoint); returns its name."""
+    from parity.adapters import ADAPTERS
+    from parity.adapters.base import Capabilities
+    from parity.adapters.openai import OpenAIAdapter
+
+    class TextOnly(OpenAIAdapter):
+        name = "textonly"
+        capabilities = Capabilities(
+            token_id_prompts=False, prompt_logprobs=False, top_logprobs=False, max_top_k=0
+        )
+
+    monkeypatch.setitem(ADAPTERS, "textonly", TextOnly)
+    return "textonly"

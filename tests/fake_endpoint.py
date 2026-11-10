@@ -141,16 +141,29 @@ class FakeEndpoint:
             msg = {"content": m.group(1) if m else "unknown"}
         elif not tools and int(body.get("max_tokens", 1)) > 1:
             # a plain chat: the model's own greedy continuation, cut at a stop token
-            out = list(ids)
+            stops = {self.kit.tokenizer.convert_tokens_to_ids(t) for t in self.kit.stop_strings()}
+            out, items = list(ids), []
+            k = int(body.get("top_logprobs") or 0)
+            finish = "length"
             for _ in range(int(body["max_tokens"])):
-                out.append(int(np.argmax(self.lm.logprobs(out))))
-            text = self.kit.decode(out[len(ids) :])
-            cut = min((text.find(t) for t in self.kit.stop_strings() if t in text), default=-1)
-            msg = {"content": text if cut < 0 else text[:cut]}
-            finish = "length" if cut < 0 else "stop"
-            return httpx.Response(
-                200, json={"choices": [{"message": msg, "finish_reason": finish}], "usage": usage}
-            )
+                lp = self.lm.logprobs(out)
+                tok = int(np.argmax(lp))
+                if tok in stops:
+                    finish = "stop"
+                    break
+
+                def entry(i: int, lp: np.ndarray = lp) -> dict[str, Any]:
+                    text = self.kit.decode([i])
+                    return {"token": text, "logprob": float(lp[i]), "bytes": list(text.encode())}
+
+                items.append({**entry(tok), "top_logprobs": [entry(int(i))
+                              for i in np.argsort(-lp)[:k]]})  # fmt: skip
+                out.append(tok)
+            msg = {"content": self.kit.decode(out[len(ids) :])}
+            choice: dict[str, Any] = {"message": msg, "finish_reason": finish}
+            if body.get("logprobs"):
+                choice["logprobs"] = {"content": items}
+            return httpx.Response(200, json={"choices": [choice], "usage": usage})
         finish = "tool_calls" if msg.get("tool_calls") else "stop"
         return httpx.Response(
             200, json={"choices": [{"message": msg, "finish_reason": finish}], "usage": usage}
