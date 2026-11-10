@@ -119,3 +119,30 @@ def test_canary_runs_once_records_history_and_reports(
     state = served["state"]
     assert "parity_verdict" in state.text()  # type: ignore[attr-defined]
     assert (tmp_path / "history.duckdb").exists()
+
+
+def test_calibrate_sends_each_benign_deployment_its_own_model_name(
+    toy_kit: TokenizerKit, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import parity.cli as cli
+
+    seen: list[str] = []
+    real_run = Suite.run
+
+    def recording_run(self: Suite, target: Target, ref: Reference, **kw: object) -> object:
+        seen.append(target.model)
+        ep = FakeEndpoint(toy_kit, seed=len(seen))
+        t = Target(target.base_url, target.model, transport=ep.transport())
+        return real_run(self, t, ref, **kw)
+
+    ref = Reference(toy_kit, SuiteReference(toy_kit), INFO)
+    monkeypatch.setattr(cli, "_build_reference", lambda *a, **k: ref)
+    monkeypatch.setattr(Suite, "run", recording_run)
+    res = runner.invoke(
+        app,
+        ["calibrate", "--model", "toy", "--served-model", "default-name",
+         "--benign", "gpu=http://h:1", "--benign", "cpu=http://h:1",
+         "--benign-model", "cpu=model-on-cpu", "--out", str(tmp_path / "cal.json")],
+    )  # fmt: skip
+    assert res.exit_code == 0, res.output
+    assert seen == ["default-name", "model-on-cpu"]

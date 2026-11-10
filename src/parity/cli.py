@@ -223,6 +223,13 @@ def calibrate(
     reference: Annotated[str, typer.Option()] = "hf:local",
     revision: Annotated[str | None, typer.Option()] = None,
     served_model: Annotated[str | None, typer.Option()] = None,
+    benign_model: Annotated[
+        list[str] | None,
+        typer.Option(
+            help="LABEL=NAME: model name to send to that benign deployment (repeatable), e.g. "
+            "two Ollama models on one server that differ only in GPU/CPU placement"
+        ),
+    ] = None,
     safety_factor: Annotated[
         float, typer.Option(help="Threshold = worst benign value x this")
     ] = 2.0,
@@ -239,13 +246,15 @@ def calibrate(
         values: dict[str, dict[str, float]] = {}
         deployments: dict[str, str] = {}
         s = Suite(probes=CALIBRATION_PROBES, options={"calibrating": True})
+        names = dict(item.partition("=")[::2] for item in benign_model or [])
         for item in benign:
             label, _, url = item.partition("=")
             if not url:
                 raise _fail(f"--benign expects LABEL=URL, got {item!r}")
             deployments[label] = sanitize_url(url)
             typer.echo(f"Calibrating on {label} ({url})")
-            rep = s.run(Target(url, served_model or model), ref, on_probe=_print_result)
+            name = names.get(label) or served_model or model
+            rep = s.run(Target(url, name), ref, on_probe=_print_result)
             for o in rep.probes:
                 for metric, v in benign_values(o.result).items():
                     values.setdefault(metric, {})[label] = v
