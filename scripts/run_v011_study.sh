@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The v0.1.1 evaluation study (docs/validation.md). As run: phase 1 only, with 4 and later 2
-# concurrent requests and a 66 C start gate; phases 2 and 3 (CPU) were dropped (decision D18). Run from a checkout of the
+# The v0.1.1 evaluation study (docs/validation.md). As run: 4 and later 2 concurrent requests,
+# a 66 C start gate; the CPU phases ran after the GPU phase (decision D18). Run from a checkout of the
 # frozen tag v0.1.1-rc2 with bin/, models/ and .parity-cache/ available:
 #
 #   bash scripts/run_v011_study.sh /path/to/checkout
