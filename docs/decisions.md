@@ -250,3 +250,15 @@ parameters and system prompt copied from the Ollama library (`qwen3:0.6b`, `smol
   Ollama library template 20 (26); official SmolLM2 template 19, Ollama library template 19.
   The Qwen3 library template is therefore not the official template, and the template probe is
   expected to say so.
+
+## D18. v0.1.1 study: GPU only, concurrency 2 after run 42, CPU phases dropped
+The study ran on a laptop that throttles at about 95 C and was switched off several times.
+Operational changes, none of which enter the study fingerprint and all recorded per row:
+* runs 1-42 used 4 concurrent requests, later runs 2 (to reduce heat);
+* the start gate (cool-down before each run) was 70 C, then 66 C;
+* the two CPU phases (CPU controls, CPU twins of the eleven original faults) were dropped by
+  the user's decision to finish the study in reasonable time, on the grounds that most
+  deployments serve from GPUs. Consequence, stated in the validation report: the CPU backend
+  enters this study only through calibration (`benign-cpu-p4`); no CPU control and no CPU fault
+  detection was measured in v0.1.1. The v0.1.0 study's CPU control (3 runs, 0 false positives)
+  is the only CPU evaluation data, and it predates tools probe v2.
