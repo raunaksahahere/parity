@@ -69,6 +69,38 @@ Development-only measurements on `dev-gpu-p4-b256` (not evaluation data):
 | fault-json-malformed | DEVIATION | yes | 0/96 | 0 | 0 | 24 | 140 |
 <!-- DEV_TOOLS:END -->
 
+## v0.3.0 additions
+
+v0.3.0 merges the v0.1.1 code above with the deployment-compatibility work (Ollama adapter,
+chat-mode identity checks, the identity rule, tool-format awareness). The checks below were run
+with the v0.3.0 code after the v0.1.1 study.
+
+### Confirmation: the v0.1.1 results carry over to v0.3.0
+
+On llama.cpp the v0.3.0 probes take the same code paths as rc2 (the chat modes switch on only
+for endpoints without token-id prompts). A subset of the study was re-run with the v0.3.0 code,
+new seeds and the same calibration to confirm it:
+
+<!-- CONFIRM_V030:BEGIN -->
+<!-- CONFIRM_V030:END -->
+
+### Ollama (live, Ollama 0.33.2)
+
+Models built from the same verified GGUF files with the Ollama library's own templates
+(`scripts/ollama_models.sh`); run by `scripts/run_v020_ollama.sh`. Ollama takes no token-id
+prompts, so the distribution and greedy probes run in chat mode.
+
+<!-- OLLAMA:BEGIN -->
+<!-- OLLAMA:END -->
+
+### Second model: SmolLM2-360M-Instruct on llama.cpp
+
+Llama architecture and a 49k-token GPT-2-style vocabulary (Qwen3: QK-norm, 151k vocabulary);
+its own calibration, controls and faults (`parity inject-faults run --family smollm2-360m`).
+
+<!-- SMOLLM2:BEGIN -->
+<!-- SMOLLM2:END -->
+
 ## v0.1.0 study (historical)
 
 Raw per-repetition data:

@@ -34,6 +34,9 @@ DATA = Path("docs/data")
 STUDY = DATA / "v0.1.1-study-results.jsonl"
 FAIL_FAST = DATA / "v0.1.1-fail-fast-results.jsonl"
 DEV_TOOLS = DATA / "v0.1.1-dev-tools-probe.jsonl"
+CONFIRM = DATA / "v0.3.0-confirmation-results.jsonl"
+OLLAMA = DATA / "v0.3.0-ollama-results.jsonl"
+SMOLLM2 = DATA / "v0.3.0-smollm2-study-results.jsonl"
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--import-study", type=Path, help="study directory to copy raw results from")
@@ -109,6 +112,34 @@ if DEV_TOOLS.exists():
             f"| {m.get('json_invalid_with_stop', 0):.0f} | {r['requests']} |"
         )
     text = splice(text, "DEV_TOOLS", "\n".join(lines) + "\n")
+if CONFIRM.exists():
+    c = study_summary(load_results(CONFIRM))
+    text = splice(text, "CONFIRM_V030", study_control_table(c) + "\n" + study_fault_table(c))
+if OLLAMA.exists():
+    orows = load_results(OLLAMA)
+    lines = [
+        "| Target | Kind | Expected | Runs | Verdicts | Evaluated probes | Flagged by |",
+        "|---|---|---|---:|---|---:|---|",
+    ]
+    for name in dict.fromkeys(r["scenario"] for r in orows):
+        rs = [r for r in orows if r["scenario"] == name]
+        verdicts = ", ".join(
+            f"{v} {sum(r['verdict'] == v for r in rs)}"
+            for v in ("PASS", "DEVIATION", "INCONCLUSIVE")
+            if any(r["verdict"] == v for r in rs)
+        )
+        flagged = sorted(
+            {p for r in rs for p, st in r["probe_status"].items() if st == "DEVIATION"}
+        )
+        evaluated = rs[0]["coverage"]["evaluated"] if rs[0].get("coverage") else []
+        lines.append(
+            f"| {name} | {rs[0]['kind']} | {rs[0]['expects']} | {len(rs)} | {verdicts} "
+            f"| {len(evaluated)}/6 | {', '.join(flagged) or 'nothing'} |"
+        )
+    text = splice(text, "OLLAMA", "\n".join(lines) + "\n")
+if SMOLLM2.exists():
+    sm = study_summary(load_results(SMOLLM2))
+    text = splice(text, "SMOLLM2", study_control_table(sm) + "\n" + study_fault_table(sm))
 val.write_text(text)
 
 if readme_body is not None:
