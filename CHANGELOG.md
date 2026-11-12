@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.2.0 (unreleased, branch dev/v0.2)
+## 0.3.0 (unreleased)
+
+One release for two development lines: the 0.1.1 reliability work (validated by the v0.1.1
+study, frozen as tags v0.1.1-rc1/rc2) and the deployment-compatibility work first planned as
+0.2. Neither 0.1.1 nor 0.2 was released on its own.
+
+### Deployment compatibility (planned as 0.2)
 
 * **No PASS without identity evidence.** A run in which no model-identity probe (distribution,
   greedy) reached a decision is INCONCLUSIVE; `--allow-unverified-pass` restores the old
@@ -21,7 +27,7 @@
 * [docs/threat-model.md](docs/threat-model.md): what a PASS rests on and what can still pass.
 * Live adapter contract tests and a vLLM harness for hardware that can run vLLM.
 
-## 0.1.1 (unreleased)
+### Reliability (planned as 0.1.1)
 
 Reliability release: results can no longer be influenced by an incompatible calibration or by
 stale saved results, and the tool probe has real power.
